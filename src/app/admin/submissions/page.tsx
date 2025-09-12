@@ -36,6 +36,7 @@ export default async function SubmissionsPage() {
               <th className="px-5 py-3 border-b-2 border-gray-300 text-left">Logo</th>
               <th className="px-5 py-3 border-b-2 border-gray-300 text-left">Nama</th>
               <th className="px-5 py-3 border-b-2 border-gray-300 text-left">Kategori</th>
+              <th className="px-5 py-3 border-b-2 border-gray-300 text-left">Sub Kategori</th>
               <th className="px-5 py-3 border-b-2 border-gray-300 text-left">Kontak</th>
               <th className="px-5 py-3 border-b-2 border-gray-300 text-left">Tanggal</th>
             </tr>
@@ -61,6 +62,8 @@ export default async function SubmissionsPage() {
                 </td>
                 <td className="px-5 py-5 bg-white text-sm">
                   <p className="text-gray-900 whitespace-no-wrap">{submission.kategori}</p>
+                </td>
+                <td>
                   <p className="text-gray-600 whitespace-no-wrap">{submission.subkategori}</p>
                 </td>
                 <td className="px-5 py-5 bg-white text-sm">
