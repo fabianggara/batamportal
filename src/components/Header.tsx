@@ -2,7 +2,7 @@
 'use client'
 
 import React from 'react';
-import { User, LogIn, LogOut } from 'lucide-react'; // Removed unused icons
+import { User, LogIn, LogOut, KeyRound } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 
@@ -36,6 +36,11 @@ const Header = () => {
                   <User className="w-6 h-6 text-white" />
                 </div>
               </div>
+
+              <Link href="/change-password" className="p-2 text-gray-600 hover:bg-gray-100 rounded-full" title="Ganti Password">
+                <KeyRound className="w-6 h-6" />
+              </Link>
+
               {/* 4. Panggil fungsi handler baru di tombol logout */}
               <button onClick={handleLogout} className="p-2 text-gray-600 hover:bg-gray-100 rounded-full">
                 <LogOut className="w-6 h-6" />

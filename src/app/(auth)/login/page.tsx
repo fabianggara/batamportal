@@ -1,9 +1,10 @@
 // src/app/login/page.tsx
 'use client';
 
+import Link from 'next/link';
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation'; // <-- 1. Impor useRouter untuk redirect
-import { useAuth } from '@/context/AuthContext'; // <-- 2. Impor useAuth dari context
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
   const [isLoginView, setIsLoginView] = useState(true);
@@ -13,8 +14,8 @@ export default function LoginPage() {
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const router = useRouter(); // <-- 3. Inisialisasi router
-  const { login } = useAuth(); // <-- 4. Ambil fungsi 'login' dari context
+  const router = useRouter();
+  const { login } = useAuth();
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -40,35 +41,43 @@ export default function LoginPage() {
 
       if (result.success) {
         if (isLoginView) {
-          // --- INI BAGIAN UTAMA PERUBAHANNYA ---
+          // --- PERBAIKAN UTAMA DIMULAI DI SINI ---
           setMessage('Login successful! Redirecting...');
           
-          // 5. Simpan data pengguna ke state global
-          login({ email: email });
+          const loggedInUser = result.user; // 1. Ambil seluruh objek 'user' dari respons API
 
-          // 6. Tunggu sebentar lalu arahkan ke halaman utama
-          setTimeout(() => {
+          // Periksa jika data user ada sebelum melanjutkan
+          if (!loggedInUser) {
+              setMessage('Error: User data not found after login.');
+              setIsLoading(false);
+              return;
+          }
+
+          // 2. Simpan seluruh objek pengguna (bukan hanya email) ke state global
+          login(loggedInUser);
+
+          // 3. Arahkan pengguna berdasarkan rolenya, tanpa timeout
+          if (loggedInUser.role === 'ADMIN') {
+            router.push('/admin');
+          } else {
             router.push('/');
-          }, 1000); // Redirect setelah 1 detik
-          // --- AKHIR DARI PERUBAHAN ---
+          }
+          // --- AKHIR DARI PERBAIKAN ---
 
         } else {
           setMessage('Sign up successful! Please log in.');
           setIsLoginView(true); // Ganti ke tampilan login setelah sign up
+          setIsLoading(false); // Pastikan loading berhenti setelah sign up
         }
       } else {
         setMessage(`Error: ${result.error}`);
+        setIsLoading(false); // Pastikan loading berhenti jika ada error dari API
       }
     } catch (error) {
       setMessage('An error occurred. Please try again.');
-    } finally {
-      // Kita atur isLoading di sini, kecuali saat redirect
-      if (isLoginView && message.includes('successful')) {
-        // Jangan set isLoading ke false jika redirect agar tombol tetap 'Loading...'
-      } else {
-        setIsLoading(false);
-      }
+      setIsLoading(false); // Pastikan loading berhenti jika ada network error
     }
+    // 'finally' block tidak lagi dibutuhkan karena kita sudah menangani setIsLoading di setiap cabang logika
   };
 
   return (
@@ -78,7 +87,6 @@ export default function LoginPage() {
           {isLoginView ? 'Login' : 'Sign Up'}
         </h1>
         
-        {/* ... SISA KODE JSX FORM ANDA TIDAK ADA PERUBAHAN SAMA SEKALI ... */}
         <form onSubmit={handleSubmit} className="space-y-8">
           <div>
             <label htmlFor="email" className="block mb-2 text-lg font-semibold text-gray-700">Email</label>
@@ -98,6 +106,15 @@ export default function LoginPage() {
               required
             />
           </div>
+
+           {isLoginView && (
+            <div className="text-right">
+              <Link href="/forgot-password" className="text-sm font-medium text-blue-500 hover:underline">
+                Lupa Password?
+              </Link>
+            </div>
+          )}
+
           {!isLoginView && (
             <div>
               <label htmlFor="confirmPassword" className="block mb-2 text-lg font-semibold text-gray-700">Confirm Password</label>
@@ -119,7 +136,7 @@ export default function LoginPage() {
         {message && <p className="mt-4 text-center text-red-500">{message}</p>}
         <p className="text-lg text-center text-gray-600">
           {isLoginView ? "Don't have an account?" : "Already have an account?"}
-          <button type="button" onClick={() => setIsLoginView(!isLoginView)} className="ml-2 font-semibold text-blue-500 hover:underline">
+          <button type="button" onClick={() => { setIsLoginView(!isLoginView); setMessage(''); }} className="ml-2 font-semibold text-blue-500 hover:underline">
             {isLoginView ? 'Sign Up' : 'Login'}
           </button>
         </p>

@@ -3,31 +3,41 @@
 
 import React, { createContext, useState, useContext, ReactNode } from 'react';
 
-// Tipe untuk data pengguna
+// Perbarui tipe User untuk menyertakan id dan role
 interface User {
+  id: number; // atau string, sesuaikan dengan tipe data di DB Anda
   email: string;
+  role: string;
 }
 
-// Tipe untuk nilai context
 interface AuthContextType {
   user: User | null;
   login: (userData: User) => void;
   logout: () => void;
 }
 
-// Membuat Context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Membuat Provider (komponen yang akan membungkus aplikasi)
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
 
+  // Fungsi login sekarang menerima objek User yang lengkap
   const login = (userData: User) => {
     setUser(userData);
   };
 
-  const logout = () => {
-    setUser(null);
+  const logout = async () => {
+    try {
+      // Panggil API untuk menghapus cookie di server
+      await fetch('/api/logout', { method: 'POST' });
+    } catch (error) {
+      console.error("Failed to logout on server", error);
+    } finally {
+      // Hapus state pengguna dari aplikasi dan arahkan ke halaman utama
+      setUser(null);
+      // Arahkan pengguna ke halaman utama atau login setelah logout
+      window.location.href = '/login'; 
+    }
   };
 
   return (
@@ -37,7 +47,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// Custom hook untuk mempermudah penggunaan context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
