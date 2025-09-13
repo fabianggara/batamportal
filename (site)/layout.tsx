@@ -11,18 +11,14 @@ export const metadata: Metadata = {
   description: 'Informasi seputar Batam',
 };
 
-export default function RootLayout({
+export default function SiteLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-
-        <main>{children}</main>
-
-      </body>
-    </html>
+    <>
+      {children}
+    </>
   );
 }
