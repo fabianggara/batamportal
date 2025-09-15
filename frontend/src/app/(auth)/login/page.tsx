@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/app/context/AuthContext';
 
 export default function LoginPage() {
   const [isLoginView, setIsLoginView] = useState(true);
@@ -28,7 +28,9 @@ export default function LoginPage() {
       return;
     }
 
-    const endpoint = isLoginView ? '/api/login' : '/api/signup';
+    // Gunakan environment variable untuk endpoint backend
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    const endpoint = isLoginView ? `${apiUrl}/api/login` : `${apiUrl}/api/signup`;
 
     try {
       const response = await fetch(endpoint, {
@@ -39,45 +41,37 @@ export default function LoginPage() {
 
       const result = await response.json();
 
-      if (result.success) {
+      if (response.ok) { // Periksa status HTTP 200-299
         if (isLoginView) {
-          // --- PERBAIKAN UTAMA DIMULAI DI SINI ---
           setMessage('Login successful! Redirecting...');
-          
-          const loggedInUser = result.user; // 1. Ambil seluruh objek 'user' dari respons API
+          const loggedInUser = result.user;
 
-          // Periksa jika data user ada sebelum melanjutkan
           if (!loggedInUser) {
-              setMessage('Error: User data not found after login.');
-              setIsLoading(false);
-              return;
+            setMessage('Error: User data not found after login.');
+            setIsLoading(false);
+            return;
           }
 
-          // 2. Simpan seluruh objek pengguna (bukan hanya email) ke state global
           login(loggedInUser);
 
-          // 3. Arahkan pengguna berdasarkan rolenya, tanpa timeout
           if (loggedInUser.role === 'ADMIN') {
             router.push('/admin');
           } else {
             router.push('/');
           }
-          // --- AKHIR DARI PERBAIKAN ---
-
         } else {
           setMessage('Sign up successful! Please log in.');
-          setIsLoginView(true); // Ganti ke tampilan login setelah sign up
-          setIsLoading(false); // Pastikan loading berhenti setelah sign up
+          setIsLoginView(true);
         }
       } else {
-        setMessage(`Error: ${result.error}`);
-        setIsLoading(false); // Pastikan loading berhenti jika ada error dari API
+        setMessage(`Error: ${result.error || 'Failed to process request'}`);
       }
     } catch (error) {
-      setMessage('An error occurred. Please try again.');
-      setIsLoading(false); // Pastikan loading berhenti jika ada network error
+      setMessage('An error occurred. Please try again. Check your network or server.');
+      console.error('Fetch error:', error); // Untuk debug
+    } finally {
+      setIsLoading(false); // Pastikan loading selalu berhenti
     }
-    // 'finally' block tidak lagi dibutuhkan karena kita sudah menangani setIsLoading di setiap cabang logika
   };
 
   return (
@@ -91,7 +85,9 @@ export default function LoginPage() {
           <div>
             <label htmlFor="email" className="block mb-2 text-lg font-semibold text-gray-700">Email</label>
             <input
-              type="email" id="email" value={email}
+              type="email"
+              id="email"
+              value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 text-lg border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
@@ -100,16 +96,18 @@ export default function LoginPage() {
           <div>
             <label htmlFor="password" className="block mb-2 text-lg font-semibold text-gray-700">Password</label>
             <input
-              type="password" id="password" value={password}
+              type="password"
+              id="password"
+              value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 text-lg border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
 
-           {isLoginView && (
+          {isLoginView && (
             <div className="text-right">
-              <Link href="/forgot-password" className="text-sm font-medium text-blue-500 hover:underline">
+              <Link href="/login/forgot-password" className="text-sm font-medium text-blue-500 hover:underline">
                 Lupa Password?
               </Link>
             </div>
@@ -119,7 +117,9 @@ export default function LoginPage() {
             <div>
               <label htmlFor="confirmPassword" className="block mb-2 text-lg font-semibold text-gray-700">Confirm Password</label>
               <input
-                type="password" id="confirmPassword" value={confirmPassword}
+                type="password"
+                id="confirmPassword"
+                value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="w-full px-4 py-3 text-lg border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
@@ -127,16 +127,21 @@ export default function LoginPage() {
             </div>
           )}
           <button
-            type="submit" disabled={isLoading}
+            type="submit"
+            disabled={isLoading}
             className="w-full px-6 py-4 text-lg font-semibold text-white bg-blue-500 rounded-lg shadow-md hover:bg-blue-600 disabled:bg-gray-400"
           >
-            {isLoading ? 'Loading...' : (isLoginView ? 'Login' : 'Sign Up')}
+            {isLoading ? 'Loading...' : isLoginView ? 'Login' : 'Sign Up'}
           </button>
         </form>
         {message && <p className="mt-4 text-center text-red-500">{message}</p>}
         <p className="text-lg text-center text-gray-600">
           {isLoginView ? "Don't have an account?" : "Already have an account?"}
-          <button type="button" onClick={() => { setIsLoginView(!isLoginView); setMessage(''); }} className="ml-2 font-semibold text-blue-500 hover:underline">
+          <button
+            type="button"
+            onClick={() => { setIsLoginView(!isLoginView); setMessage(''); }}
+            className="ml-2 font-semibold text-blue-500 hover:underline"
+          >
             {isLoginView ? 'Sign Up' : 'Login'}
           </button>
         </p>
