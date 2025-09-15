@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Building, Search } from 'lucide-react';
-import Header from '../../components/Header';
+// import Header from '../../components/Header';
 
 // Main Body Component
 const HomePage = () => {
@@ -67,7 +67,7 @@ const HomePage = () => {
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Include Header */}
-      <Header />
+      {/* <Header /> */}
       
       {/* Search Section */}
       <div className="bg-white shadow-sm p-4 border-t border-gray-200">
