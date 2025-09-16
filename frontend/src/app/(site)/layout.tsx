@@ -1,24 +1,27 @@
-// src/app/layout.tsx
+// src/app/(site)/layout.tsx
+import type { Metadata } from "next";
+import { AuthProvider } from "@/context/AuthContext"; // pastikan path sesuai
+import "../globals.css";
+import Header from "@/components/Header";
 
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import '../globals.css';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Batam Portal',
-  description: 'Informasi seputar Batam',
+    title: "Batam Portal",
+    description: "Informasi seputar Batam",
 };
 
-export default function SiteLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <>
-      {children}
-    </>
-  );
+export default function RootLayout({
+    children,
+    }: {
+    children: React.ReactNode;
+    }) {
+    return (
+        <AuthProvider>
+        {/* Semua komponen di sini bisa pakai useAuth */}
+            <Header />
+            <main>
+                {children}
+            </main>
+        </AuthProvider>
+    );
 }

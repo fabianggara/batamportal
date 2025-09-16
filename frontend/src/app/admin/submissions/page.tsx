@@ -1,6 +1,6 @@
 // src/app/submissions/page.tsx
 
-import { query } from '@/lib/db'; // Import your database query utility
+import { query } from '@/BE/src/lib/db'; // Import your database query utility
 import Image from 'next/image';   // Import Next.js Image component for optimization
 
 // Define a type for our submission data for better type safety

@@ -5,12 +5,12 @@ import Link from 'next/link';
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
-  const [isLoginView, setIsLoginView] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -22,15 +22,8 @@ export default function LoginPage() {
     setIsLoading(true);
     setMessage('');
 
-    if (!isLoginView && password !== confirmPassword) {
-      setMessage('Error: Passwords do not match.');
-      setIsLoading(false);
-      return;
-    }
-
-    // Gunakan environment variable untuk endpoint backend
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-    const endpoint = isLoginView ? `${apiUrl}/api/login` : `${apiUrl}/api/signup`;
+    const endpoint = `${apiUrl}/api/login`;
 
     try {
       const response = await fetch(endpoint, {
@@ -41,111 +34,184 @@ export default function LoginPage() {
 
       const result = await response.json();
 
-      if (response.ok) { // Periksa status HTTP 200-299
-        if (isLoginView) {
-          setMessage('Login successful! Redirecting...');
-          const loggedInUser = result.user;
+      if (response.ok) {
+        setMessage('Login berhasil! Mengalihkan...');
+        const loggedInUser = result.user;
 
-          if (!loggedInUser) {
-            setMessage('Error: User data not found after login.');
-            setIsLoading(false);
-            return;
-          }
+        if (!loggedInUser) {
+          setMessage('Error: Data pengguna tidak ditemukan setelah login.');
+          setIsLoading(false);
+          return;
+        }
 
-          login(loggedInUser);
+        login(loggedInUser);
 
-          if (loggedInUser.role === 'ADMIN') {
-            router.push('/admin');
-          } else {
-            router.push('/');
-          }
+        if (loggedInUser.role === 'ADMIN') {
+          router.push('/admin');
         } else {
-          setMessage('Sign up successful! Please log in.');
-          setIsLoginView(true);
+          router.push('/');
         }
       } else {
-        setMessage(`Error: ${result.error || 'Failed to process request'}`);
+        setMessage(`Error: ${result.error || 'Gagal memproses permintaan'}`);
       }
     } catch (error) {
-      setMessage('An error occurred. Please try again. Check your network or server.');
-      console.error('Fetch error:', error); // Untuk debug
+      setMessage('Terjadi kesalahan. Silakan coba lagi.');
+      console.error('Fetch error:', error);
     } finally {
-      setIsLoading(false); // Pastikan loading selalu berhenti
+      setIsLoading(false);
     }
   };
 
   return (
-    <main className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="w-full max-w-lg p-10 space-y-8 bg-white rounded-lg shadow-md">
-        <h1 className="text-4xl font-bold text-center text-gray-800">
-          {isLoginView ? 'Login' : 'Sign Up'}
-        </h1>
+    <div className="min-h-screen flex">
+      {/* Left Side - Welcome Section */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 p-12 items-center justify-center relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-20 left-20 w-32 h-32 bg-white rounded-full"></div>
+          <div className="absolute bottom-32 right-16 w-24 h-24 bg-white rounded-full"></div>
+          <div className="absolute top-1/3 right-1/4 w-16 h-16 bg-white rounded-full"></div>
+        </div>
         
-        <form onSubmit={handleSubmit} className="space-y-8">
-          <div>
-            <label htmlFor="email" className="block mb-2 text-lg font-semibold text-gray-700">Email</label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 text-lg border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
+        <div className="relative z-10 text-center text-white max-w-md">
+          <h1 className="text-5xl font-bold mb-6">Selamat Datang!</h1>
+          <p className="text-xl opacity-90 mb-8">
+            Masuk ke BatamPortal dan temukan berbagai tempat menarik di Kota Batam
+          </p>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 text-lg">
+              <div className="w-2 h-2 bg-white rounded-full"></div>
+              <span>Jelajahi destinasi wisata</span>
+            </div>
+            <div className="flex items-center gap-3 text-lg">
+              <div className="w-2 h-2 bg-white rounded-full"></div>
+              <span>Temukan kuliner lezat</span>
+            </div>
+            <div className="flex items-center gap-3 text-lg">
+              <div className="w-2 h-2 bg-white rounded-full"></div>
+              <span>Dapatkan rekomendasi terbaik</span>
+            </div>
           </div>
-          <div>
-            <label htmlFor="password" className="block mb-2 text-lg font-semibold text-gray-700">Password</label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 text-lg border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
+        </div>
+      </div>
+
+      {/* Right Side - Login Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-50">
+        <div className="w-full max-w-md space-y-8">
+          {/* Header */}
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Masuk ke Akun</h2>
+            <p className="text-gray-600">Masukkan email dan password Anda</p>
           </div>
 
-          {isLoginView && (
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Email Input */}
+            <div className="space-y-2">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  placeholder="nama@example.com"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Password Input */}
+            <div className="space-y-2">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  placeholder="Masukkan password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Forgot Password Link */}
             <div className="text-right">
-              <Link href="/login/forgot-password" className="text-sm font-medium text-blue-500 hover:underline">
+              <Link 
+                href="/forgot-password" 
+                className="text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors"
+              >
                 Lupa Password?
               </Link>
             </div>
-          )}
 
-          {!isLoginView && (
-            <div>
-              <label htmlFor="confirmPassword" className="block mb-2 text-lg font-semibold text-gray-700">Confirm Password</label>
-              <input
-                type="password"
-                id="confirmPassword"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-3 text-lg border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Sedang Masuk...
+                </>
+              ) : (
+                <>
+                  Masuk
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Message */}
+          {message && (
+            <div className={`p-4 rounded-lg text-center text-sm ${
+              message.includes('berhasil') 
+                ? 'bg-green-50 text-green-700 border border-green-200' 
+                : 'bg-red-50 text-red-700 border border-red-200'
+            }`}>
+              {message}
             </div>
           )}
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full px-6 py-4 text-lg font-semibold text-white bg-blue-500 rounded-lg shadow-md hover:bg-blue-600 disabled:bg-gray-400"
-          >
-            {isLoading ? 'Loading...' : isLoginView ? 'Login' : 'Sign Up'}
-          </button>
-        </form>
-        {message && <p className="mt-4 text-center text-red-500">{message}</p>}
-        <p className="text-lg text-center text-gray-600">
-          {isLoginView ? "Don't have an account?" : "Already have an account?"}
-          <button
-            type="button"
-            onClick={() => { setIsLoginView(!isLoginView); setMessage(''); }}
-            className="ml-2 font-semibold text-blue-500 hover:underline"
-          >
-            {isLoginView ? 'Sign Up' : 'Login'}
-          </button>
-        </p>
+
+          {/* Sign Up Link */}
+          <div className="text-center pt-6 border-t border-gray-200">
+            <p className="text-gray-600">
+              Belum punya akun?{' '}
+              <Link 
+                href="/register" 
+                className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+              >
+                Daftar sekarang
+              </Link>
+            </p>
+          </div>
+
+          {/* Mobile Header for small screens */}
+          <div className="lg:hidden text-center pt-8">
+            <h1 className="text-2xl font-bold text-gray-900">BatamPortal</h1>
+            <p className="text-gray-600 mt-2">Jelajahi keindahan Kota Batam</p>
+          </div>
+        </div>
       </div>
-    </main>
+    </div>
   );
 }

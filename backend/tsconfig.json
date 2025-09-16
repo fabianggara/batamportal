@@ -24,7 +24,11 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "allowUnusedLabels": false,
-    "allowUnreachableCode": false
+    "allowUnreachableCode": false,
+    "baseUrl": "src",
+    "paths": {
+        "@/*": ["*"]
+    }
     },
     "include": [
         "src/**/*"
@@ -38,5 +42,5 @@
     "ts-node": {
         "esm": false,
         "files": true
-    }
+    },
 }

@@ -14,9 +14,9 @@ export async function query(
 ): Promise<QueryResult[]> {
     const dbconnection = await mysql.createConnection({
     host: process.env.MYSQL_HOST || 'localhost',
-    port: parseInt(process.env.MYSQL_PORT || '3306'),
-    database: process.env.MYSQL_DATABASE || '',
-    user: process.env.MYSQL_USER || '',
+    // port: parseInt(process.env.MYSQL_PORT || '3306'),
+    database: process.env.MYSQL_DATABASE || 'batamportal',
+    user: process.env.MYSQL_USER || 'root',
     password: process.env.MYSQL_PASSWORD || '',
     });
 

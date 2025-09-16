@@ -6,7 +6,10 @@ import compression from 'compression';
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Import routes (akan dibuat nanti)
+// Import routes
+import signupRouter from './routes/signup/routes';
+import loginRouter from "./routes/login/routes";
+import forgotPassRoutes from "./routes/password/forgot/routes";
 // import submissionsRouter from './routes/submissions';
 
 dotenv.config();
@@ -36,12 +39,17 @@ app.get('/health', (req, res) => {
     });
 });
 
+
 // API routes
 app.use('/api', (req, res, next) => {
     console.log(`${req.method} ${req.path} - ${new Date().toISOString()}`);
     next();
 });
 
+// Routes
+app.use('/api/signup', signupRouter);
+app.use("/api/login", loginRouter);
+app.use("/api/password", forgotPassRoutes);
 // Routes will be added here
 // app.use('/api/submissions', submissionsRouter);
 
