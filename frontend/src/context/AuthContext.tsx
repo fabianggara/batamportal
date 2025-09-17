@@ -1,7 +1,7 @@
 // src/context/AuthContext.tsx
 'use client';
 
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 
 // Perbarui tipe User untuk menyertakan id dan role
 interface User {
@@ -15,36 +15,78 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (userData: User) => void;
-  logout: () => void;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
+  refresh: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Fungsi login sekarang menerima objek User yang lengkap
-  const login = (userData: User) => {
-    setUser(userData);
+  // API URL ambil dari .env atau fallback ke localhost
+  const API = process.env.NEXT_PUBLIC_API_URL;
+
+  // refresh session (cek apakah masih login)
+  const refresh = async () => {
+    try {
+      const res = await fetch(`${API}/api/auth/me`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data || null);
+      } else {
+        setUser(null);
+      }
+    } catch (error) {
+      console.error("Failed to refresh session", error);
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
+    useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // login ke backend
+  const login = async (email: string, password: string) => {
+    try {
+      const res = await fetch(`${API}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // penting untuk cookie
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        await refresh(); // ambil ulang user setelah login
+        return { success: true };
+      }
+      return { success: false, error: data?.error || 'Login failed' };
+    } catch (error) {
+      return { success: false, error: 'Network error' };
+    }
+  };
+
+  // logout user
   const logout = async () => {
     try {
-      // Panggil API untuk menghapus cookie di server
-      await fetch('/api/logout', { method: 'POST' });
+      await fetch(`${API}/api/auth/logout`, { method: 'POST', credentials: 'include' });
     } catch (error) {
       console.error("Failed to logout on server", error);
     } finally {
-      // Hapus state pengguna dari aplikasi dan arahkan ke halaman utama
       setUser(null);
-      // Arahkan pengguna ke halaman utama atau login setelah logout
-      window.location.href = '/login'; 
+      window.location.href = '/login';
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refresh }}>
       {children}
     </AuthContext.Provider>
   );

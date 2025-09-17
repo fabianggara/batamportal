@@ -1,5 +1,6 @@
 // src/app.ts
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -8,9 +9,10 @@ import path from 'path';
 
 // Import routes
 import signupRouter from './routes/signup/routes';
-import loginRouter from "./routes/login/routes";
-import forgotPassRoutes from "./routes/password/forgot/routes";
-// import submitFormRouter from './routes/submit-form/routes';
+import loginRouter from './routes/login/routes';
+import meRoutes from "./routes/auth/meRoutes";
+import forgotPassRoutes from './routes/password/forgot/routes';
+
 import submissionsRouter from './routes/submissions/routes';
 
 dotenv.config();
@@ -27,6 +29,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cookieParser())
 
 // Serve static files (uploads)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -50,8 +53,9 @@ app.use('/api', (req, res, next) => {
 // Routes
 app.use('/api/signup', signupRouter);
 app.use("/api/login", loginRouter);
+app.use("/api/auth/me", meRoutes);
 app.use("/api/password", forgotPassRoutes);
-// app.use('/api/submit/form' , submitFormRouter );
+
 app.use('/api/submissions', submissionsRouter);
 
 // 404 handler
