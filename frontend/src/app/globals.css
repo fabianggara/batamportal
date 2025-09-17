@@ -15,7 +15,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #1e1e1e;   /* abu-abu gelap */
-    --foreground: #f0f0f0;   /* abu-abu terang untuk teks */
+    --foreground: #000000;   /* abu-abu terang untuk teks */
   }
 }
 

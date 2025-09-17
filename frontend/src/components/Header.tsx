@@ -4,11 +4,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { Bell, Settings, User, LogIn, LogOut, ChevronDown, UserPlus } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import Image from "next/image";
 
 const Header = () => {
   const { user, logout } = useAuth();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const [notificationCount, setNotificationCount] = useState(3); // Simulasi notifikasi
+  const [notificationCount, setNotificationCount] = useState(3);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -33,9 +34,7 @@ const Header = () => {
   };
 
   const handleNotificationClick = () => {
-    // Handle notification click logic here
     console.log('Notifications clicked');
-    // Reset notification count (simulasi)
     setNotificationCount(0);
   };
 
@@ -82,22 +81,22 @@ const Header = () => {
                 >
                   <div className="flex flex-col text-right">
                     <span className="text-sm font-medium text-gray-800">
-                      {user.email ?? 'User'}
+                      {user.name || 'User'}
                     </span>
                     <span className="text-xs text-gray-500">{user.email}</span>
                   </div>
                   
                   {/* Avatar */}
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-md">
-                    {/* {user.avatar ? (
-                      <img 
-                        src={user.avatar} 
-                        alt="Avatar" 
+                    {user.profile_picture ? (
+                      <Image 
+                        src={user?.profile_picture || "/default-avatar.png"} 
+                        alt="Profile" 
                         className="w-full h-full rounded-full object-cover"
                       />
                     ) : (
                       <User className="w-5 h-5 text-white" />
-                    )} */}
+                    )}
                   </div>
                   
                   <ChevronDown 
@@ -109,23 +108,23 @@ const Header = () => {
 
                 {/* Dropdown Menu */}
                 {showProfileDropdown && (
-                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50 animate-in slide-in-from-top-2 duration-200">
+                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
                     {/* User Info */}
                     <div className="px-4 py-3 border-b border-gray-100">
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                          {/* {user.avatar ? (
-                            <img 
-                              src={user.avatar} 
+                          {user.profile_picture ? (
+                            <Image 
+                              src={user?.profile_picture || "/default-avatar.png"} 
                               alt="Avatar" 
                               className="w-full h-full rounded-full object-cover"
                             />
                           ) : (
                             <User className="w-6 h-6 text-white" />
-                          )} */}
+                          )}
                         </div>
                         <div>
-                          <div className="font-semibold text-gray-800">{user.email ?? 'User'}</div>
+                          <div className="font-semibold text-gray-800">{user.name || 'User'}</div>
                           <div className="text-sm text-gray-500">{user.email}</div>
                           <div className="text-xs text-green-600 font-medium">● Online</div>
                         </div>

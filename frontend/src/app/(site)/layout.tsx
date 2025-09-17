@@ -1,7 +1,6 @@
 // src/app/(site)/layout.tsx
 import type { Metadata } from "next";
-import { AuthProvider } from "@/context/AuthContext"; // pastikan path sesuai
-import "../globals.css";
+import { AuthProvider } from "@/context/AuthContext";
 import Header from "@/components/Header";
 
 

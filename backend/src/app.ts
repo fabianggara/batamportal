@@ -10,7 +10,7 @@ import path from 'path';
 import signupRouter from './routes/signup/routes';
 import loginRouter from "./routes/login/routes";
 import forgotPassRoutes from "./routes/password/forgot/routes";
-// import submissionsRouter from './routes/submissions';
+import submissionsRouter from './routes/submissions/routes';
 
 dotenv.config();
 
@@ -50,8 +50,7 @@ app.use('/api', (req, res, next) => {
 app.use('/api/signup', signupRouter);
 app.use("/api/login", loginRouter);
 app.use("/api/password", forgotPassRoutes);
-// Routes will be added here
-// app.use('/api/submissions', submissionsRouter);
+app.use('/api/submissions', submissionsRouter);
 
 // 404 handler
 app.use('*', (req, res) => {

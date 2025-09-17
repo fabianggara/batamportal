@@ -32,7 +32,7 @@
     },
     "include": [
         "src/**/*"
-    ],
+, "src/lib/db.ts"    ],
     "exclude": [
         "node_modules",
         "dist",

@@ -8,6 +8,9 @@ interface User {
   id: number; // atau string, sesuaikan dengan tipe data di DB Anda
   email: string;
   role: string;
+  name: string;                // nama user
+  profile_picture?: string;    // foto profil (nullable)
+  bio?: string;                // bio (opsional)
 }
 
 interface AuthContextType {

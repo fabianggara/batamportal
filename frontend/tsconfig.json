@@ -21,9 +21,9 @@
     "paths": {
       "@/*": ["./src/*"],
       "@/app/*": ["./src/app/*"],
-      "@/BE/*": ["../backend/*"]
+      "@backend/*": ["../backend/src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/api/password/change/route.js"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/api/password/change/route.js", "../backend/src/lib/db.ts"],
   "exclude": ["node_modules"]
 }

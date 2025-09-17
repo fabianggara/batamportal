@@ -12,7 +12,7 @@ router.post("/", async (req: Request, res: Response) => {
 
         // 1. Cek user di database
         const users: any = await query(
-            "SELECT id, email, password_hash, role FROM users WHERE email = ?",
+            "SELECT id, email, password, role FROM users WHERE email = ?",
             [email]
         );
 
@@ -23,7 +23,7 @@ router.post("/", async (req: Request, res: Response) => {
         const user = users[0];
 
         // 2. Cocokkan password
-        const passwordsMatch = await bcrypt.compare(password, user.password_hash);
+        const passwordsMatch = await bcrypt.compare(password, user.password);
         if (!passwordsMatch) {
         return res.status(401).json({ success: false, error: "Email atau password salah" });
         }
@@ -42,7 +42,7 @@ router.post("/", async (req: Request, res: Response) => {
         maxAge: 60 * 60 * 1000, // 1 jam dalam ms
         });
 
-        delete user.password_hash;
+        delete user.password;
 
         return res.json({ success: true, user });
     } catch (error) {
