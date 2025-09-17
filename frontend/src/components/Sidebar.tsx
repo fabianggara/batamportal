@@ -5,16 +5,16 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { 
     Home, 
-    Building2, 
+    // Building2, 
     Users, 
     FileText, 
     Settings, 
     ChevronLeft, 
     ChevronRight,
     BarChart3,
-    MapPin,
+    // MapPin,
     Star,
-    Bell,
+    // Bell,
     LogOut,
     User,
     Menu,
@@ -35,38 +35,24 @@ import {
         description: "Overview & Analytics"
         },
         {
-        title: "Data Hotel",
-        href: "/admin/hotel", 
-        icon: Building2,
-        badge: "12",
-        description: "Manage Hotels"
-        },
-        {
-        title: "Data Wisata",
-        href: "/admin/wisata",
-        icon: MapPin,
-        badge: null,
-        description: "Tourist Attractions"
-        },
-        {
         title: "Users",
         href: "/admin/users",
         icon: Users,
-        badge: "847",
+        badge: null,
         description: "User Management"
         },
         {
         title: "Reviews",
         href: "/admin/reviews",
         icon: Star,
-        badge: "23",
+        badge: null,
         description: "User Reviews"
         },
         {
         title: "Submissions",
         href: "/admin/submissions",
         icon: FileText,
-        badge: "5",
+        badge: "100",
         description: "Form Submissions"
         },
         {
@@ -75,13 +61,6 @@ import {
         icon: BarChart3,
         badge: null,
         description: "Reports & Stats"
-        },
-        {
-        title: "Notifications",
-        href: "/admin/notifications",
-        icon: Bell,
-        badge: "3",
-        description: "System Alerts"
         },
         {
         title: "Settings",
@@ -128,7 +107,7 @@ import {
         `}>
             
             {/* Header */}
-            <div className="p-6 border-b border-gray-700">
+            <div className="px-6 py-4 border-b border-gray-700">
             <div className="flex items-center justify-between">
                 {!isCollapsed && (
                 <div className="flex items-center gap-3">
@@ -157,7 +136,7 @@ import {
             </div>
 
             {/* Admin Profile */}
-            <div className="p-4 border-b border-gray-700">
+            <div className="px-4 py-2 border-b border-gray-700">
             <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
                 <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
                 <User className="w-5 h-5 text-white" />
@@ -211,11 +190,13 @@ import {
                     {/* Icon */}
                     <div className={`relative ${isCollapsed ? '' : 'flex-shrink-0'}`}>
                     <Icon className="w-5 h-5" />
-                    {item.badge && !isCollapsed && (
-                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                        {parseInt(item.badge) > 99 ? '99+' : item.badge}
+                    {item.badge && !isCollapsed && 
+                    (
+                        <span className="absolute -top-1 -right-1 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                        {/* {parseInt(item.badge) > 99 ? '99+' : item.badge} */}
                         </span>
-                    )}
+                    )
+                    }
                     </div>
                     
                     {/* Text Content */}

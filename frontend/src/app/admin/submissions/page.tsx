@@ -17,105 +17,94 @@ import {
   ChevronDown,
   X,
   FileText,
-  Users
+  Users,
+  Mail,
+  Loader2,
+  RefreshCw
 } from "lucide-react";
 
-// Define a type for our submission data for better type safety
+// Type definition sesuai dengan struktur database
 type Submission = {
   id: number;
-  nama: string;
-  alamat: string;
-  kategori: string;
-  subkategori: string;
-  kontak: string;
-  website: string;
-  logo_path: string | null;
+  place_name: string;
+  address: string;
+  category: string | null;
+  subcategory: string | null;
+  description: string | null;
+  contact: string | null;
+  email: string | null;
+  website: string | null;
+  thumbnail_picture: string | null;
   created_at: string;
 };
 
-// Mock data - replace with your actual API call
-const mockSubmissions: Submission[] = [
-  {
-    id: 1,
-    nama: "Hotel Grand Batam",
-    alamat: "Jl. Hang Tuah No. 123, Batam Center",
-    kategori: "Akomodasi",
-    subkategori: "Hotel Bintang 5",
-    kontak: "0778-123456",
-    website: "https://hotelgrand.com",
-    logo_path: "/api/placeholder/50/50",
-    created_at: "2024-01-15T10:30:00Z"
-  },
-  {
-    id: 2,
-    nama: "Pantai Melur Resort",
-    alamat: "Pantai Melur, Galang",
-    kategori: "Wisata",
-    subkategori: "Pantai",
-    kontak: "0778-987654",
-    website: "https://pantaimelur.com",
-    logo_path: "/api/placeholder/50/50",
-    created_at: "2024-01-14T14:20:00Z"
-  },
-  {
-    id: 3,
-    nama: "Rumah Makan Sederhana",
-    alamat: "Jl. Ahmad Yani No. 45",
-    kategori: "Kuliner",
-    subkategori: "Restoran Tradisional",
-    kontak: "0778-456789",
-    website: "",
-    logo_path: null,
-    created_at: "2024-01-13T09:15:00Z"
-  },
-  {
-    id: 4,
-    nama: "Batam Mini Golf",
-    alamat: "Kompleks Nagoya Hill",
-    kategori: "Hiburan",
-    subkategori: "Olahraga & Rekreasi",
-    kontak: "0778-321654",
-    website: "https://batammini.golf",
-    logo_path: "/api/placeholder/50/50",
-    created_at: "2024-01-12T16:45:00Z"
-  },
-  {
-    id: 5,
-    nama: "Penginapan Murah Meriah",
-    alamat: "Jl. Sudirman No. 78",
-    kategori: "Akomodasi",
-    subkategori: "Guest House",
-    kontak: "0778-654321",
-    website: "",
-    logo_path: null,
-    created_at: "2024-01-11T11:30:00Z"
-  },
-];
-
 export default function SubmissionsPage() {
-  const [submissions, setSubmissions] = useState<Submission[]>(mockSubmissions);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedKategori, setSelectedKategori] = useState("all");
   const [selectedSubkategori, setSelectedSubkategori] = useState("all");
-  const [showFilters, setShowFilters] = useState(false);
-  const [sortBy, setSortBy] = useState<'name' | 'date' | 'kategori'>('date');
+  const [sortBy, setSortBy] = useState<'name' | 'date' | 'category'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  // Fetch submissions from database
+  const fetchSubmissions = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiUrl}/api/submissions`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setSubmissions(result.data || []);
+      } else {
+        throw new Error(result.error || 'Failed to fetch submissions');
+      }
+    } catch (error) {
+      console.error('Error fetching submissions:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load submissions');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Load data on component mount
+  useEffect(() => {
+    fetchSubmissions();
+  }, []);
 
   // Get unique categories and subcategories
   const categories = useMemo(() => {
-    const cats = [...new Set(submissions.map(sub => sub.kategori))];
+    const cats = [...new Set(submissions
+      .map(sub => sub.category)
+      .filter(cat => cat !== null && cat !== undefined)
+    )] as string[];
     return cats.sort();
   }, [submissions]);
 
   const subcategories = useMemo(() => {
     if (selectedKategori === 'all') {
-      return [...new Set(submissions.map(sub => sub.subkategori))].sort();
+      const subcats = [...new Set(submissions
+        .map(sub => sub.subcategory)
+        .filter(subcat => subcat !== null && subcat !== undefined)
+      )] as string[];
+      return subcats.sort();
     }
-    return [...new Set(
+    const subcats = [...new Set(
       submissions
-        .filter(sub => sub.kategori === selectedKategori)
-        .map(sub => sub.subkategori)
-    )].sort();
+        .filter(sub => sub.category === selectedKategori)
+        .map(sub => sub.subcategory)
+        .filter(subcat => subcat !== null && subcat !== undefined)
+    )] as string[];
+    return subcats.sort();
   }, [submissions, selectedKategori]);
 
   // Filter and search submissions
@@ -125,21 +114,22 @@ export default function SubmissionsPage() {
     // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(sub =>
-        sub.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        sub.alamat.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        sub.kategori.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        sub.subkategori.toLowerCase().includes(searchTerm.toLowerCase())
+        sub.place_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        sub.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (sub.category && sub.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (sub.subcategory && sub.subcategory.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (sub.description && sub.description.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
 
     // Filter by category
     if (selectedKategori !== 'all') {
-      filtered = filtered.filter(sub => sub.kategori === selectedKategori);
+      filtered = filtered.filter(sub => sub.category === selectedKategori);
     }
 
     // Filter by subcategory
     if (selectedSubkategori !== 'all') {
-      filtered = filtered.filter(sub => sub.subkategori === selectedSubkategori);
+      filtered = filtered.filter(sub => sub.subcategory === selectedSubkategori);
     }
 
     // Sort submissions
@@ -147,13 +137,13 @@ export default function SubmissionsPage() {
       let comparison = 0;
       switch (sortBy) {
         case 'name':
-          comparison = a.nama.localeCompare(b.nama);
+          comparison = a.place_name.localeCompare(b.place_name);
           break;
         case 'date':
           comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
           break;
-        case 'kategori':
-          comparison = a.kategori.localeCompare(b.kategori);
+        case 'category':
+          comparison = (a.category || '').localeCompare(b.category || '');
           break;
       }
       return sortOrder === 'asc' ? comparison : -comparison;
@@ -168,15 +158,61 @@ export default function SubmissionsPage() {
     setSelectedSubkategori("all");
   };
 
-  const getCategoryColor = (kategori: string) => {
+  const getCategoryColor = (kategori: string | null) => {
+    if (!kategori) return 'bg-gray-100 text-gray-800';
+    
     const colors: { [key: string]: string } = {
       'Akomodasi': 'bg-blue-100 text-blue-800',
       'Wisata': 'bg-green-100 text-green-800',
       'Kuliner': 'bg-orange-100 text-orange-800',
       'Hiburan': 'bg-purple-100 text-purple-800',
+      'Transportasi': 'bg-red-100 text-red-800',
+      'Kesehatan': 'bg-cyan-100 text-cyan-800',
+      'Pendidikan': 'bg-lime-100 text-lime-800',
+      'Belanja': 'bg-amber-100 text-amber-800',
     };
     return colors[kategori] || 'bg-gray-100 text-gray-800';
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+              <p className="text-gray-600">Memuat data submissions...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="text-center max-w-md">
+              <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <X className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Gagal Memuat Data</h3>
+              <p className="text-gray-600 mb-4">{error}</p>
+              <button
+                onClick={fetchSubmissions}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mx-auto"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Coba Lagi
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -191,6 +227,13 @@ export default function SubmissionsPage() {
           </div>
           
           <div className="flex items-center gap-3">
+            <button
+              onClick={fetchSubmissions}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
             <button className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
               <Download className="w-4 h-4" />
               Export CSV
@@ -209,7 +252,7 @@ export default function SubmissionsPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Cari nama, alamat, kategori, atau subkategori..."
+                placeholder="Cari nama tempat, alamat, kategori, atau deskripsi..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -266,7 +309,7 @@ export default function SubmissionsPage() {
         <div className="flex flex-wrap gap-2 mt-4">
           {searchTerm && (
             <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-              {/* Search: "{searchTerm}" */}
+              Search: {searchTerm}
               <button onClick={() => setSearchTerm("")}>
                 <X className="w-3 h-3" />
               </button>
@@ -310,7 +353,7 @@ export default function SubmissionsPage() {
               value={`${sortBy}-${sortOrder}`}
               onChange={(e) => {
                 const [field, order] = e.target.value.split('-');
-                setSortBy(field as 'name' | 'date' | 'kategori');
+                setSortBy(field as 'name' | 'date' | 'category');
                 setSortOrder(order as 'asc' | 'desc');
               }}
               className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -319,7 +362,7 @@ export default function SubmissionsPage() {
               <option value="date-asc">Oldest First</option>
               <option value="name-asc">Name A-Z</option>
               <option value="name-desc">Name Z-A</option>
-              <option value="kategori-asc">Category A-Z</option>
+              <option value="category-asc">Category A-Z</option>
             </select>
           </div>
         </div>
@@ -354,10 +397,10 @@ export default function SubmissionsPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-12 w-12">
-                        {submission.logo_path ? (
+                        {submission.thumbnail_picture ? (
                           <Image
-                            src={submission.logo_path}
-                            alt={`Logo ${submission.nama}`}
+                            src={submission.thumbnail_picture}
+                            alt={`Logo ${submission.place_name}`}
                             width={48}
                             height={48}
                             className="h-12 w-12 rounded-lg object-cover border-2 border-gray-200"
@@ -365,23 +408,28 @@ export default function SubmissionsPage() {
                         ) : (
                           <div className="h-12 w-12 bg-gradient-to-br from-gray-200 to-gray-300 rounded-lg flex items-center justify-center">
                             <span className="text-gray-500 font-bold text-lg">
-                              {submission.nama.charAt(0)}
+                              {submission.place_name.charAt(0).toUpperCase()}
                             </span>
                           </div>
                         )}
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
-                          {submission.nama}
+                          {submission.place_name}
                         </div>
                         <div className="text-sm text-gray-500 flex items-center gap-1">
                           <MapPin className="w-3 h-3" />
-                          {submission.alamat}
+                          <span className="truncate max-w-xs">{submission.address}</span>
                         </div>
                         {submission.website && (
                           <div className="text-sm text-blue-600 flex items-center gap-1 hover:text-blue-800">
                             <Globe className="w-3 h-3" />
-                            <a href={submission.website} target="_blank" rel="noopener noreferrer">
+                            <a 
+                              href={submission.website.startsWith('http') ? submission.website : `https://${submission.website}`}
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="truncate max-w-xs"
+                            >
                               Website
                             </a>
                           </div>
@@ -391,18 +439,37 @@ export default function SubmissionsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="space-y-2">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getCategoryColor(submission.kategori)}`}>
-                        {submission.kategori}
-                      </span>
+                      {submission.category ? (
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getCategoryColor(submission.category)}`}>
+                          {submission.category}
+                        </span>
+                      ) : (
+                        <span className="inline-flex px-2 py-1 text-xs text-gray-500 bg-gray-100 rounded-full">
+                          No Category
+                        </span>
+                      )}
                       <div className="text-sm text-gray-600">
-                        {submission.subkategori}
+                        {submission.subcategory || 'No Subcategory'}
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-1 text-sm text-gray-900">
-                      <Phone className="w-4 h-4 text-gray-400" />
-                      {submission.kontak}
+                    <div className="space-y-1">
+                      {submission.contact && (
+                        <div className="flex items-center gap-1 text-sm text-gray-900">
+                          <Phone className="w-4 h-4 text-gray-400" />
+                          {submission.contact}
+                        </div>
+                      )}
+                      {submission.email && (
+                        <div className="flex items-center gap-1 text-sm text-gray-600">
+                          <Mail className="w-4 h-4 text-gray-400" />
+                          <span className="truncate max-w-xs">{submission.email}</span>
+                        </div>
+                      )}
+                      {!submission.contact && !submission.email && (
+                        <span className="text-sm text-gray-400">No Contact</span>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -417,13 +484,22 @@ export default function SubmissionsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end gap-2">
-                      <button className="text-blue-600 hover:text-blue-900 p-1 rounded">
+                      <button 
+                        className="text-blue-600 hover:text-blue-900 p-1 rounded"
+                        title="View Details"
+                      >
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button className="text-green-600 hover:text-green-900 p-1 rounded">
+                      <button 
+                        className="text-green-600 hover:text-green-900 p-1 rounded"
+                        title="Edit"
+                      >
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button className="text-red-600 hover:text-red-900 p-1 rounded">
+                      <button 
+                        className="text-red-600 hover:text-red-900 p-1 rounded"
+                        title="Delete"
+                      >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -433,10 +509,15 @@ export default function SubmissionsPage() {
             </tbody>
           </table>
           
-          {filteredSubmissions.length === 0 && (
+          {filteredSubmissions.length === 0 && !isLoading && (
             <div className="text-center py-12">
               <div className="text-gray-400 text-lg mb-2">Tidak ada data ditemukan</div>
-              <p className="text-gray-500">Coba ubah filter atau kata kunci pencarian Anda</p>
+              <p className="text-gray-500">
+                {submissions.length === 0 
+                  ? 'Belum ada submission yang masuk' 
+                  : 'Coba ubah filter atau kata kunci pencarian Anda'
+                }
+              </p>
             </div>
           )}
         </div>

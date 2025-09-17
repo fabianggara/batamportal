@@ -40,8 +40,8 @@ export default function ModernSubmissionForm() {
   const [formData, setFormData] = useState({
     nama: '',
     alamat: '',
-    kategori_id: '',
-    subkategori_id: '',
+    kategori: '', // Menggunakan slug kategori
+    subkategori: '', // Menggunakan slug subkategori
     kontak: '',
     website: '',
     email: '',
@@ -98,12 +98,49 @@ export default function ModernSubmissionForm() {
     { id: 19, kategori_id: 4, nama: 'Cinema', slug: 'cinema' },
     { id: 20, kategori_id: 4, nama: 'Pub & Bar', slug: 'pub-bar' },
     { id: 21, kategori_id: 4, nama: 'Olahraga & Rekreasi', slug: 'olahraga-rekreasi' },
-    { id: 22, kategori_id: 4, nama: 'Spa & Massage', slug: 'spa-massage' }
+    { id: 22, kategori_id: 4, nama: 'Spa & Massage', slug: 'spa-massage' },
+
+    // Transportasi
+    { id: 23, kategori_id: 5, nama: 'Taksi', slug: 'taksi' },
+    { id: 24, kategori_id: 5, nama: 'Bus Umum', slug: 'bus-umum' },
+    { id: 25, kategori_id: 5, nama: 'Travel & Shuttle', slug: 'travel-shuttle' },
+    { id: 26, kategori_id: 5, nama: 'Penyewaan Mobil', slug: 'rental-mobil' },
+    { id: 27, kategori_id: 5, nama: 'Penyewaan Motor', slug: 'rental-motor' },
+    { id: 28, kategori_id: 5, nama: 'Pelabuhan & Ferry', slug: 'pelabuhan-ferry' },
+    { id: 29, kategori_id: 5, nama: 'Bandara', slug: 'bandara' },
+
+    // Kesehatan
+    { id: 30, kategori_id: 6, nama: 'Rumah Sakit', slug: 'rumah-sakit' },
+    { id: 31, kategori_id: 6, nama: 'Klinik', slug: 'klinik' },
+    { id: 32, kategori_id: 6, nama: 'Apotek', slug: 'apotek' },
+    { id: 33, kategori_id: 6, nama: 'Laboratorium Medis', slug: 'laboratorium-medis' },
+    { id: 34, kategori_id: 6, nama: 'Puskesmas', slug: 'puskesmas' },
+    { id: 35, kategori_id: 6, nama: 'Dokter Praktek', slug: 'dokter-praktek' },
+
+    // Pendidikan
+    { id: 36, kategori_id: 7, nama: 'Sekolah Dasar', slug: 'sekolah-dasar' },
+    { id: 37, kategori_id: 7, nama: 'Sekolah Menengah', slug: 'sekolah-menengah' },
+    { id: 38, kategori_id: 7, nama: 'Perguruan Tinggi', slug: 'perguruan-tinggi' },
+    { id: 39, kategori_id: 7, nama: 'Lembaga Kursus', slug: 'lembaga-kursus' },
+    { id: 40, kategori_id: 7, nama: 'Bimbingan Belajar', slug: 'bimbingan-belajar' },
+    { id: 41, kategori_id: 7, nama: 'Pesantren', slug: 'pesantren' },
+    
+    // Belanja
+    { id: 42, kategori_id: 8, nama: 'Mall', slug: 'mall' },
+    { id: 43, kategori_id: 8, nama: 'Pasar Tradisional', slug: 'pasar-tradisional' },
+    { id: 44, kategori_id: 8, nama: 'Minimarket', slug: 'minimarket' },
+    { id: 45, kategori_id: 8, nama: 'Supermarket', slug: 'supermarket' },
+    { id: 46, kategori_id: 8, nama: 'Toko Pakaian', slug: 'toko-pakaian' },
+    { id: 47, kategori_id: 8, nama: 'Toko Elektronik', slug: 'toko-elektronik' },
+    { id: 48, kategori_id: 8, nama: 'Toko Buku', slug: 'toko-buku' }
   ]);
 
-  // Get filtered subcategories based on selected category
+  // Cari kategori yang dipilih berdasarkan slug di formData
+  const selectedCategory = categories.find(cat => cat.slug === formData.kategori);
+  
+  // Filter subkategori berdasarkan ID dari kategori yang dipilih
   const filteredSubcategories = subcategories.filter(
-    sub => formData.kategori_id ? sub.kategori_id === parseInt(formData.kategori_id) : false
+    sub => selectedCategory ? sub.kategori_id === selectedCategory.id : false
   );
 
   // Handle input changes
@@ -116,8 +153,8 @@ export default function ModernSubmissionForm() {
     }
     
     // Reset subcategory when category changes
-    if (field === 'kategori_id' && value !== formData.kategori_id) {
-      setFormData(prev => ({ ...prev, subkategori_id: '' }));
+    if (field === 'kategori' && value !== formData.kategori) {
+      setFormData(prev => ({ ...prev, subkategori: '' }));
     }
   };
 
@@ -162,8 +199,8 @@ export default function ModernSubmissionForm() {
 
     if (!formData.nama.trim()) newErrors.nama = 'Nama tempat wajib diisi';
     if (!formData.alamat.trim()) newErrors.alamat = 'Alamat wajib diisi';
-    if (!formData.kategori_id) newErrors.kategori_id = 'Kategori wajib dipilih';
-    if (!formData.subkategori_id) newErrors.subkategori_id = 'Subkategori wajib dipilih';
+    if (!formData.kategori) newErrors.kategori = 'Kategori wajib dipilih';
+    if (!formData.subkategori) newErrors.subkategori = 'Subkategori wajib dipilih';
     if (!formData.kontak.trim()) newErrors.kontak = 'Kontak wajib diisi';
     
     // Email validation if provided
@@ -204,9 +241,13 @@ export default function ModernSubmissionForm() {
     }
 
     try {
-      const response = await fetch('/api/submit-form', {
+      // Mengirim data form dalam bentuk JSON
+      const response = await fetch('http://localhost:5000/api/submissions', {
         method: 'POST',
-        body: submitData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
       });
 
       const result = await response.json();
@@ -219,8 +260,8 @@ export default function ModernSubmissionForm() {
         setFormData({
           nama: '',
           alamat: '',
-          kategori_id: '',
-          subkategori_id: '',
+          kategori: '',
+          subkategori: '',
           kontak: '',
           website: '',
           email: '',
@@ -240,8 +281,6 @@ export default function ModernSubmissionForm() {
       setIsLoading(false);
     }
   };
-
-  const selectedCategory = categories.find(cat => cat.id === parseInt(formData.kategori_id));
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
@@ -330,25 +369,25 @@ export default function ModernSubmissionForm() {
                 <div className="relative">
                   <select
                     id="kategori"
-                    value={formData.kategori_id}
-                    onChange={(e) => handleInputChange('kategori_id', e.target.value)}
+                    value={formData.kategori}
+                    onChange={(e) => handleInputChange('kategori', e.target.value)}
                     className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none ${
-                      errors.kategori_id ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
+                      errors.kategori ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
                     }`}
                   >
                     <option value="">Pilih Kategori</option>
                     {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
+                      <option key={cat.id} value={cat.slug}>
                         {cat.nama}
                       </option>
                     ))}
                   </select>
                   <ChevronDown className="absolute right-3 top-3 h-5 w-5 text-gray-400 pointer-events-none" />
                 </div>
-                {errors.kategori_id && (
+                {errors.kategori && (
                   <p className="text-sm text-red-600 flex items-center gap-1">
                     <AlertCircle className="w-4 h-4" />
-                    {errors.kategori_id}
+                    {errors.kategori}
                   </p>
                 )}
               </div>
@@ -361,28 +400,28 @@ export default function ModernSubmissionForm() {
                 <div className="relative">
                   <select
                     id="subkategori"
-                    value={formData.subkategori_id}
-                    onChange={(e) => handleInputChange('subkategori_id', e.target.value)}
-                    disabled={!formData.kategori_id}
+                    value={formData.subkategori}
+                    onChange={(e) => handleInputChange('subkategori', e.target.value)}
+                    disabled={!formData.kategori}
                     className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none disabled:bg-gray-100 disabled:text-gray-400 ${
-                      errors.subkategori_id ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
+                      errors.subkategori ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
                     }`}
                   >
                     <option value="">
-                      {formData.kategori_id ? 'Pilih Subkategori' : 'Pilih kategori terlebih dahulu'}
+                      {formData.kategori ? 'Pilih Subkategori' : 'Pilih kategori terlebih dahulu'}
                     </option>
                     {filteredSubcategories.map((sub) => (
-                      <option key={sub.id} value={sub.id}>
+                      <option key={sub.id} value={sub.slug}>
                         {sub.nama}
                       </option>
                     ))}
                   </select>
                   <ChevronDown className="absolute right-3 top-3 h-5 w-5 text-gray-400 pointer-events-none" />
                 </div>
-                {errors.subkategori_id && (
+                {errors.subkategori && (
                   <p className="text-sm text-red-600 flex items-center gap-1">
                     <AlertCircle className="w-4 h-4" />
-                    {errors.subkategori_id}
+                    {errors.subkategori}
                   </p>
                 )}
               </div>
@@ -403,9 +442,9 @@ export default function ModernSubmissionForm() {
                   </div>
                   <div>
                     <p className="font-medium text-gray-900">{selectedCategory.nama}</p>
-                    {formData.subkategori_id && (
+                    {formData.subkategori && (
                       <p className="text-sm text-gray-600">
-                        {filteredSubcategories.find(sub => sub.id === parseInt(formData.subkategori_id))?.nama}
+                        {filteredSubcategories.find(sub => sub.slug === formData.subkategori)?.nama}
                       </p>
                     )}
                   </div>

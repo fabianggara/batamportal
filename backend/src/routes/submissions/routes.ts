@@ -24,36 +24,48 @@ router.get('/', async (req: Request, res: Response) => {
 
     // ✅ POST /api/submissions - Create new submission
     router.post('/', async (req: Request, res: Response) => {
-    try {
-        const { name, email, message, category } = req.body;
+        try {
+            const { nama, email, alamat, kategori, subkategori, deskripsi, kontak, website } = req.body;
 
-        if (!name || !email || !message) {
-        return res.status(400).json({
+            if (!nama || !alamat) {
+            return res.status(400).json({
+                success: false,
+                error: 'Nama dan alamat wajib diisi',
+            });
+            }
+
+            const insertQuery = `
+            INSERT INTO submissions 
+            (place_name, email, address, category, subcategory, description, contact, website, created_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            `;
+
+            const result = await query(insertQuery, [
+            nama,        // frontend "nama" → DB "place_name"
+            email,
+            alamat,      // frontend "alamat" → DB "address"
+            kategori,    // frontend "kategori" → DB "category"
+            subkategori, // frontend "subkategori" → DB "subcategory"
+            deskripsi,   // frontend "deskripsi" → DB "description"
+            kontak,      // frontend "kontak" → DB "contact"
+            website
+            ]);
+
+            return res.status(201).json({
+            success: true,
+            message: 'Submission created successfully',
+            data: { id: (result as any).insertId },
+            });
+        } catch (error) {
+            console.error('Error creating submission:', error);
+            return res.status(500).json({
             success: false,
-            error: 'Name, email, and message are required',
-        });
+            error: 'Failed to create submission',
+            });
         }
-
-        const insertQuery = `
-        INSERT INTO submissions (name, email, message, category, created_at) 
-        VALUES (?, ?, ?, ?, NOW())
-        `;
-
-        const result = await query(insertQuery, [name, email, message, category || null]);
-
-        return res.status(201).json({
-        success: true,
-        message: 'Submission created successfully',
-        data: { id: (result as any).insertId },
-        });
-    } catch (error) {
-        console.error('Error creating submission:', error);
-        return res.status(500).json({
-        success: false,
-        error: 'Failed to create submission',
-        });
-    }
     });
+
+
 
     // ✅ GET /api/submissions/:id - Get single submission
     router.get('/:id', async (req: Request, res: Response) => {
@@ -83,37 +95,50 @@ router.get('/', async (req: Request, res: Response) => {
 
     // ✅ PUT /api/submissions/:id - Update submission
     router.put('/:id', async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-        const { name, email, message, category, status } = req.body;
+        try {
+            const { id } = req.params;
+            const { nama, email, alamat, kategori, subkategori, deskripsi, kontak, website, status } = req.body;
 
-        const updateQuery = `
-        UPDATE submissions 
-        SET name = ?, email = ?, message = ?, category = ?, status = ?, updated_at = NOW()
-        WHERE id = ?
-        `;
+            const updateQuery = `
+                UPDATE submissions 
+                SET place_name = ?, email = ?, address = ?, category = ?, subcategory = ?, 
+                    description = ?, contact = ?, website = ?, updated_at = NOW()
+                WHERE id = ?
+                `;
 
-        const result = await query(updateQuery, [name, email, message, category, status, id]);
+                const result = await query(updateQuery, [
+                nama,
+                email,
+                alamat,
+                kategori,
+                subkategori,
+                deskripsi,
+                kontak,
+                website,
+                id
+            ]);
 
-        if ((result as any).affectedRows === 0) {
-        return res.status(404).json({
+
+            if ((result as any).affectedRows === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Submission not found',
+            });
+            }
+
+            return res.json({
+            success: true,
+            message: 'Submission updated successfully',
+            });
+        } catch (error) {
+            console.error('Error updating submission:', error);
+            return res.status(500).json({
             success: false,
-            error: 'Submission not found',
-        });
+            error: 'Failed to update submission',
+            });
         }
-
-        return res.json({
-        success: true,
-        message: 'Submission updated successfully',
-        });
-    } catch (error) {
-        console.error('Error updating submission:', error);
-        return res.status(500).json({
-        success: false,
-        error: 'Failed to update submission',
-        });
-    }
     });
+
 
     // ✅ DELETE /api/submissions/:id - Delete submission
     router.delete('/:id', async (req: Request, res: Response) => {
