@@ -9,6 +9,7 @@ import path from 'path';
 // Import routes
 import signupRouter from './routes/signup/routes';
 import loginRouter from "./routes/login/routes";
+import logoutRouter from "./routes/logout/routes";
 import forgotPassRoutes from "./routes/password/forgot/routes";
 import submissionsRouter from './routes/submissions/routes';
 
@@ -20,10 +21,15 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(helmet());
 app.use(compression());
-app.use(cors({
+const corsOptions = {
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true
-}));
+    credentials: true,
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    allowedHeaders: "Content-Type,Authorization"
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -49,6 +55,8 @@ app.use('/api', (req, res, next) => {
 // Routes
 app.use('/api/signup', signupRouter);
 app.use("/api/login", loginRouter);
+app.use("/api/logout", logoutRouter);
+app.use("/api/password/forgot", forgotPassRoutes);
 app.use("/api/password", forgotPassRoutes);
 app.use('/api/submissions', submissionsRouter);
 

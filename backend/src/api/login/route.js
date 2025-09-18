@@ -36,6 +36,7 @@ export async function POST(req) {
     cookies().set('session_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Penting untuk cross-site requests
       maxAge: 60 * 60, // 1 jam
       path: '/',
     });

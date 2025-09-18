@@ -1,59 +1,62 @@
-// src/context/AuthContext.tsx
+// frontend/src/context/AuthContext.tsx
 'use client';
 
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 
-// Perbarui tipe User untuk menyertakan id dan role
+// Definisikan tipe untuk objek user
 interface User {
-  id: number; // atau string, sesuaikan dengan tipe data di DB Anda
-  email: string;
-  role: string;
-  name: string;                // nama user
-  profile_picture?: string;    // foto profil (nullable)
-  bio?: string;                // bio (opsional)
+    id: number;
+    email: string;
+    name?: string; // name bisa jadi tidak ada
+    role: string;
+    profile_picture?: string;
 }
 
 interface AuthContextType {
-  user: User | null;
-  login: (userData: User) => void;
-  logout: () => void;
+    user: User | null;
+    login: (userData: User) => void;
+    logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+    const [user, setUser] = useState<User | null>(null);
+    const router = useRouter();
 
-  // Fungsi login sekarang menerima objek User yang lengkap
-  const login = (userData: User) => {
-    setUser(userData);
-  };
+    // Fungsi login: simpan data user ke state
+    const login = (userData: User) => {
+        setUser(userData);
+    };
 
-  const logout = async () => {
-    try {
-      // Panggil API untuk menghapus cookie di server
-      await fetch('/api/logout', { method: 'POST' });
-    } catch (error) {
-      console.error("Failed to logout on server", error);
-    } finally {
-      // Hapus state pengguna dari aplikasi dan arahkan ke halaman utama
-      setUser(null);
-      // Arahkan pengguna ke halaman utama atau login setelah logout
-      window.location.href = '/login'; 
-    }
-  };
+    // Fungsi logout: panggil API logout, hapus state, lalu redirect
+    const logout = async () => {
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+            await fetch(`${apiUrl}/api/logout`, {
+                method: 'POST',
+                credentials: 'include',
+            });
+        } catch (error) {
+            console.error("Logout error:", error);
+        } finally {
+            setUser(null); // Hapus data user dari state
+            router.push('/login'); // Arahkan ke halaman login
+        }
+    };
 
-  return (
-    <AuthContext.Provider value={{ user, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+    return (
+        <AuthContext.Provider value={{ user, login, logout }}>
+            {children}
+        </AuthContext.Provider>
+    );
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+    const context = useContext(AuthContext);
+    if (context === undefined) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
 };

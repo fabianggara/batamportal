@@ -1,44 +1,40 @@
-// src/middleware.ts
+// frontend/src/middleware.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
 export async function middleware(req: NextRequest) {
+    console.log(`\n--- Middleware berjalan untuk: ${req.nextUrl.pathname} ---`);
     const sessionToken = req.cookies.get('session_token')?.value;
     const loginUrl = new URL('/login', req.url);
 
     if (!sessionToken) {
+        console.log('Tidak ada session_token, mengarahkan ke /login.');
         return NextResponse.redirect(loginUrl);
     }
 
     try {
-        console.log("Mencoba verifikasi token...");
         const secret = new TextEncoder().encode(process.env.JWT_SECRET);
         const { payload } = await jwtVerify(sessionToken, secret);
         
-        // LOG PALING PENTING ADA DI SINI
-        console.log('Verifikasi berhasil! Payload token:', payload); 
+        // LOG PALING PENTING: Tampilkan isi token
+        console.log('Verifikasi token berhasil! Payload token:', payload);
         
         if (payload.role !== 'ADMIN') {
             console.log(`Pengecekan role gagal. Role pengguna: "${payload.role}", dibutuhkan: "ADMIN"`);
-            return NextResponse.redirect(new URL('/', req.url));
+            return NextResponse.redirect(new URL('/', req.url)); // Arahkan ke halaman utama jika bukan admin
         }
         
-        console.log("Role cocok! Mengizinkan akses ke /admin.");
+        console.log('Otentikasi & Otorisasi berhasil! Mengizinkan akses.');
         return NextResponse.next();
 
     } catch (err) {
-    // Lakukan pengecekan untuk memastikan 'err' adalah instance dari Error
-    if (err instanceof Error) {
-        console.error('Verifikasi token gagal! Error:', err.message);
-    } else {
-        console.error('Verifikasi token gagal! Terjadi error yang tidak diketahui:', err);
+        console.error('Verifikasi token gagal! Error:', err instanceof Error ? err.message : err);
+        
+        const response = NextResponse.redirect(loginUrl);
+        response.cookies.delete('session_token');
+        return response;
     }
-    
-    const response = NextResponse.redirect(loginUrl);
-    response.cookies.delete('session_token');
-    return response;
-}
 }
 
 export const config = {

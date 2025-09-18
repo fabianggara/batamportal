@@ -35,12 +35,14 @@ router.post("/", async (req: Request, res: Response) => {
         { expiresIn: "1h" }
         );
 
-        // 4. Kirim cookie + response
         res.cookie("session_token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 60 * 60 * 1000, // 1 jam dalam ms
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax', // <-- INI KUNCINYA
+            path: '/', // <-- Tambahkan ini untuk memastikan cookie berlaku di semua halaman
+            maxAge: 60 * 60 * 1000,
         });
+
 
         delete user.password;
 
