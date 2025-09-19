@@ -3,39 +3,53 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+// Tipe untuk state pesan
+type MessageState = {
+  text: string;
+  type: 'success' | 'error' | '';
+};
+
 export default function ChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState<MessageState>({ text: '', type: '' });
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      setMessage('Password baru tidak cocok.');
+      setMessage({ text: 'Password baru tidak cocok.', type: 'error' });
       return;
     }
 
     setIsLoading(true);
-    setMessage('');
+    setMessage({ text: '', type: '' });
 
     try {
-      const response = await fetch('/api/password/change', {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${API_URL}/api/password/change`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPassword, newPassword }),
+        // PERBAIKAN 1: Kirim cookie untuk autentikasi
+        credentials: 'include',
+        // PERBAIKAN 2: Ganti nama properti menjadi 'oldPassword'
+        body: JSON.stringify({ oldPassword: currentPassword, newPassword }),
       });
 
       const result = await response.json();
-      setMessage(result.message || result.error);
-
-      if (result.success) {
-        setTimeout(() => router.push('/'), 2000); // Arahkan ke homepage setelah berhasil
+      
+      // PERBAIKAN 3: Tampilkan pesan berdasarkan status respons
+      if (response.ok) {
+        setMessage({ text: result.message || 'Password berhasil diubah.', type: 'success' });
+        setTimeout(() => router.push('/'), 2000); // Arahkan ke dashboard setelah berhasil
+      } else {
+        setMessage({ text: result.error || 'Gagal mengubah password.', type: 'error' });
       }
+
     } catch (error) {
-      setMessage('Terjadi kesalahan. Silakan coba lagi.');
+      setMessage({ text: 'Terjadi kesalahan. Silakan coba lagi.', type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -58,7 +72,13 @@ export default function ChangePasswordPage() {
             <label htmlFor="confirmPassword">Konfirmasi Password Baru</label>
             <input type="password" id="confirmPassword" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required className="w-full px-3 py-2 mt-1 border rounded-md" />
           </div>
-          {message && <p className="text-sm text-center text-green-600">{message}</p>}
+
+          {message.text && (
+            <p className={`text-sm text-center ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+              {message.text}
+            </p>
+          )}
+          
           <button type="submit" disabled={isLoading} className="w-full px-4 py-2 font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-blue-400">
             {isLoading ? 'Menyimpan...' : 'Simpan Perubahan'}
           </button>

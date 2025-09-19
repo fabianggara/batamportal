@@ -55,6 +55,39 @@ export const login = async (req: Request, res: Response) => {
     }
     };
 
+    export const signup = async (req: Request, res: Response) => {
+    try {
+        const { email, password, name } = req.body;
+
+        // Validasi input sederhana
+        if (!email || !password || !name) {
+            return res.status(400).json({ error: "Email, password, dan nama wajib diisi." });
+        }
+
+        // Cek apakah user sudah ada
+        const existingUsers = await query("SELECT id FROM users WHERE email = ?", [email]) as any[];
+        if (existingUsers.length > 0) {
+            return res.status(409).json({ error: "Email sudah terdaftar." });
+        }
+
+        // Hash password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // Simpan user baru ke database
+        await query(
+            "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
+            [name, email, hashedPassword, 'user'] // Default role 'user'
+        );
+
+        return res.status(201).json({ message: "Registrasi berhasil. Silakan login." });
+
+    } catch (error) {
+        console.error("Signup Error:", error);
+        return res.status(500).json({ error: "Terjadi kesalahan pada server." });
+    }
+};
+
     export const logout = async (req: Request, res: Response) => {
     try {
         res.clearCookie("session_token"); // hapus cookie JWT

@@ -12,6 +12,7 @@ import {
   LogOut,
   ChevronDown,
   UserPlus,
+  KeyRound,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -75,6 +76,15 @@ const Header = () => {
                   </span>
                 )}
               </button>
+
+              {/* Change Password */}
+                      <Link
+                        href="/login/change-password"
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-gray-700 transition-colors"
+                        onClick={() => setShowProfileDropdown(false)}
+                      >
+                        <KeyRound className="w-5 h-5 text-gray-500" />
+                      </Link>
 
               {/* Settings */}
               <Link
