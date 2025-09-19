@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation'; 
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -25,13 +26,51 @@ import {
   Sun,
   Moon
 } from 'lucide-react';
+interface Submission {
+  id: number;
+  place_name: string;
+  thumbnail_picture?: string;
+  email?: string;
+  address: string;
+  category?: string;
+  subcategory?: string;
+  description?: string;
+  contact?: string;
+  website?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 
 const HomePage = () => {
+  const router = useRouter();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [activeCategory, setActiveCategory] = useState(0);
   const [searchFocused, setSearchFocused] = useState(false);
   const [statsVisible, setStatsVisible] = useState(false);
   const [timeOfDay, setTimeOfDay] = useState<'morning' | 'afternoon' | 'evening'>('morning');
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [loading, setLoading] = useState(true);
+
+
+  // Fetch submissions dari backend
+  useEffect(() => {
+    const fetchSubmissions = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/api/submissions"); // sesuaikan dengan baseURL backend
+        const json = await res.json();
+        if (json.success) {
+          setSubmissions(json.data);
+        }
+      } catch (err) {
+        console.error("Error fetching submissions:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSubmissions();
+  }, []);
 
   // Set time-based greeting
   useEffect(() => {
@@ -56,52 +95,52 @@ const HomePage = () => {
   ];
 
   // Enhanced recommendations with more realistic data
-  const recommendations = [
-    {
-      id: 1,
-      name: "Harris Hotel Batam Center",
-      description: "Hotel mewah dengan fasilitas lengkap di jantung kota Batam",
-      image: "/api/placeholder/300/200",
-      tag: "Hot Deal",
-      rating: 4.8,
-      price: "Rp 750.000",
-      location: "Batam Center",
-      category: "Akomodasi"
-    },
-    {
-      id: 2,
-      name: "Pantai Melur",
-      description: "Pantai indah dengan pasir putih dan air jernih yang memukau",
-      image: "/api/placeholder/300/200", 
-      tag: "Trending",
-      rating: 4.6,
-      visitors: "2.3k",
-      location: "Galang",
-      category: "Wisata"
-    },
-    {
-      id: 3,
-      name: "Rumah Makan Sederhana",
-      description: "Kuliner khas Batam dengan cita rasa autentik dan harga terjangkau",
-      image: "/api/placeholder/300/200",
-      tag: "Local Favorite", 
-      rating: 4.7,
-      price: "Rp 50.000",
-      location: "Nagoya",
-      category: "Kuliner"
-    },
-    {
-      id: 4,
-      name: "Batam Mini Golf",
-      description: "Arena mini golf outdoor dengan pemandangan kota yang menakjubkan",
-      image: "/api/placeholder/300/200",
-      tag: "Family Fun",
-      rating: 4.5,
-      visitors: "1.8k",
-      location: "Nagoya Hill",
-      category: "Hiburan"
-    }
-  ];
+  // const recommendations = [
+  //   {
+  //     id: 1,
+  //     name: "Harris Hotel Batam Center",
+  //     description: "Hotel mewah dengan fasilitas lengkap di jantung kota Batam",
+  //     image: "/api/placeholder/300/200",
+  //     tag: "Hot Deal",
+  //     rating: 4.8,
+  //     price: "Rp 750.000",
+  //     location: "Batam Center",
+  //     category: "Akomodasi"
+  //   },
+  //   {
+  //     id: 2,
+  //     name: "Pantai Melur",
+  //     description: "Pantai indah dengan pasir putih dan air jernih yang memukau",
+  //     image: "/api/placeholder/300/200", 
+  //     tag: "Trending",
+  //     rating: 4.6,
+  //     visitors: "2.3k",
+  //     location: "Galang",
+  //     category: "Wisata"
+  //   },
+  //   {
+  //     id: 3,
+  //     name: "Rumah Makan Sederhana",
+  //     description: "Kuliner khas Batam dengan cita rasa autentik dan harga terjangkau",
+  //     image: "/api/placeholder/300/200",
+  //     tag: "Local Favorite", 
+  //     rating: 4.7,
+  //     price: "Rp 50.000",
+  //     location: "Nagoya",
+  //     category: "Kuliner"
+  //   },
+  //   {
+  //     id: 4,
+  //     name: "Batam Mini Golf",
+  //     description: "Arena mini golf outdoor dengan pemandangan kota yang menakjubkan",
+  //     image: "/api/placeholder/300/200",
+  //     tag: "Family Fun",
+  //     rating: 4.5,
+  //     visitors: "1.8k",
+  //     location: "Nagoya Hill",
+  //     category: "Hiburan"
+  //   }
+  // ];
 
   // Dynamic slides with time-based content
   const slides = [
@@ -150,15 +189,15 @@ const HomePage = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const getTagColor = (tag: string) => {
-    switch (tag) {
-      case 'Hot Deal': return 'bg-red-500';
-      case 'Trending': return 'bg-blue-500';
-      case 'Local Favorite': return 'bg-green-500';
-      case 'Family Fun': return 'bg-purple-500';
-      default: return 'bg-orange-500';
-    }
-  };
+  // const getTagColor = (tag: string) => {
+  //   switch (tag) {
+  //     case 'Hot Deal': return 'bg-red-500';
+  //     case 'Trending': return 'bg-blue-500';
+  //     case 'Local Favorite': return 'bg-green-500';
+  //     case 'Family Fun': return 'bg-purple-500';
+  //     default: return 'bg-orange-500';
+  //   }
+  // };
 
   const getTimeIcon = () => {
     switch (timeOfDay) {
@@ -297,6 +336,7 @@ const HomePage = () => {
           </div>
         </section>
 
+
         {/* Enhanced Recommendations Section */}
         <section>
           <div className="flex items-center justify-between mb-6">
@@ -304,78 +344,78 @@ const HomePage = () => {
               <h2 className="text-2xl font-bold text-gray-800">Rekomendasi Terpopuler</h2>
               <p className="text-gray-600">Pilihan terbaik berdasarkan review pengguna</p>
             </div>
-            <div className="flex gap-2">
-              <button className="px-4 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors">
-                <TrendingUp className="w-4 h-4 inline mr-1" /> Trending
-              </button>
-              <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                <Clock className="w-4 h-4 inline mr-1" /> Terbaru
-              </button>
-            </div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {recommendations.map((item) => (
-              <div 
-                key={item.id} 
-                className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2"
-              >
-                <div className="relative overflow-hidden">
-                  <div className="bg-gradient-to-br from-gray-200 to-gray-300 h-48 flex items-center justify-center text-gray-500 relative">
-                    <Camera className="w-12 h-12" />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <Play className="w-8 h-8 text-white" />
-                    </div>
-                  </div>
-                  
-                  {/* Tag Badge */}
-                  <div className={`absolute top-3 left-3 ${getTagColor(item.tag)} text-white text-xs px-2 py-1 rounded-full font-medium`}>
-                    {item.tag}
-                  </div>
-                  
-                  {/* Category Badge */}
-                  <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
-                    {item.category}
-                  </div>
-                </div>
-                
-                <div className="p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-bold text-gray-800 group-hover:text-blue-600 transition-colors">
-                      {item.name}
-                    </h3>
-                    <div className="flex items-center gap-1 text-yellow-500">
-                      <Star className="w-4 h-4 fill-current" />
-                      <span className="text-sm font-medium text-gray-700">{item.rating}</span>
-                    </div>
-                  </div>
-                  
-                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">{item.description}</p>
-                  
-                  <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
-                      {item.location}
-                    </div>
-                    {item.price && (
-                      <div className="font-semibold text-blue-600">{item.price}</div>
-                    )}
-                    {item.visitors && (
-                      <div className="flex items-center gap-1">
-                        <Eye className="w-3 h-3" />
-                        {item.visitors}
+          {loading ? (
+            <p className="text-center text-gray-500">Loading data...</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {submissions.map((item) => (
+                <div 
+                  key={item.id} 
+                  className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2"
+                >
+                  {/* Image */}
+                  <div className="relative overflow-hidden">
+                    {item.thumbnail_picture ? (
+                      <img
+                        src={
+                          item.thumbnail_picture.startsWith("http")
+                            ? item.thumbnail_picture
+                            : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/uploads/${item.thumbnail_picture}`
+                        }
+                        alt={item.place_name}
+                        width={500}
+                        height={200}
+                        className="w-full h-48 object-c over"
+                      />
+                    ) : (
+                      <div className="bg-gradient-to-br from-gray-200 to-gray-300 h-48 flex items-center justify-center text-gray-500">
+                        <Camera className="w-12 h-12" />
                       </div>
                     )}
+
+                    {/* Category Badge */}
+                    <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
+                      {item.category}
+                    </div>
                   </div>
-                  
-                  <button className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform group-hover:scale-105">
-                    Lihat Detail
-                  </button>
+
+                  {/* Content */}
+                  <div className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-bold text-gray-800 group-hover:text-blue-600 transition-colors">
+                        {item.place_name}
+                      </h3>
+                    </div>
+
+                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">{item.description}</p>
+
+                    <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
+                      <div className="flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        {item.address}
+                      </div>
+                      {item.contact && (
+                        <div className="font-semibold text-blue-600">{item.contact}</div>
+                      )}
+                    </div>
+
+                    <button 
+                      className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform group-hover:scale-105"
+                      onClick={(e) => {
+                        e.stopPropagation(); // ← PENTING: Mencegah double click
+                        router.push(`/itemDetail/${item.id}`);
+                      }}
+                      >
+                      Lihat Detail
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
+
 
         {/* Enhanced Carousel Section */}
         <section className="relative">

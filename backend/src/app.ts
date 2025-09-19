@@ -57,6 +57,7 @@ app.use("/api/auth/me", meRoutes);
 app.use("/api/password", forgotPassRoutes);
 
 app.use('/api/submissions', submissionsRouter);
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // 404 handler
 app.use('*', (req, res) => {

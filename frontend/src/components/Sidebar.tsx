@@ -36,7 +36,7 @@ import {
         },
         {
         title: "Users",
-        href: "/admin/users",
+        href: "/admin/usersTable",
         icon: Users,
         badge: null,
         description: "User Management"

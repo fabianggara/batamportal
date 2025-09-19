@@ -1,7 +1,7 @@
-// src/app/form/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter, useParams } from "next/navigation";
 import { 
   Building2, 
   MapPin, 
@@ -14,9 +14,11 @@ import {
   CheckCircle,
   AlertCircle,
   Loader2,
+  ArrowLeft,
   X,
   ChevronDown,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Video as VideoIcon // Menambahkan ikon video
 } from 'lucide-react';
 
 // Types matching our database structure
@@ -35,7 +37,15 @@ type Subcategory = {
   slug: string;
 };
 
+// 👇 Tambahkan tipe untuk file media
+type SubmissionMedia = {
+  file: File;
+  type: 'photo' | 'video';
+  preview: string; // URL untuk pratinjau
+};
+
 export default function ModernSubmissionForm() {
+  const router = useRouter();
   // Form state matching database fields
   const [formData, setFormData] = useState({
     nama: '',
@@ -49,10 +59,11 @@ export default function ModernSubmissionForm() {
     logo: null as File | null,
   });
 
-  // const [logo, setLogo] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  
+  // 👇 State baru untuk menampung media lainnya
+  const [submissionMedia, setSubmissionMedia] = useState<SubmissionMedia[]>([]);
+
   // UI states
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -193,6 +204,58 @@ export default function ModernSubmissionForm() {
   };
 
 
+  // 👇 Handler untuk unggahan media tambahan
+  const handleMediaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const newMedia: SubmissionMedia[] = [];
+    const fileErrors: string[] = [];
+
+    // Validasi setiap file
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const mimeType = file.type;
+      
+      // Batasi ukuran per file (misal: 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        fileErrors.push(`Ukuran file "${file.name}" tidak boleh melebihi 10MB.`);
+        continue;
+      }
+
+      // Tentukan tipe media
+      let mediaType: 'photo' | 'video';
+      if (mimeType.startsWith('image/')) {
+        mediaType = 'photo';
+      } else if (mimeType.startsWith('video/')) {
+        mediaType = 'video';
+      } else {
+        fileErrors.push(`Format file "${file.name}" tidak didukung. Mohon gunakan format gambar atau video.`);
+        continue;
+      }
+      
+      // Buat URL pratinjau sementara
+      const previewUrl = URL.createObjectURL(file);
+      newMedia.push({ file, type: mediaType, preview: previewUrl });
+    }
+
+    if (fileErrors.length > 0) {
+      setErrors(prev => ({ ...prev, media: fileErrors.join(' ') }));
+      return;
+    }
+
+    // Tambahkan file-file baru ke state
+    setSubmissionMedia(prev => [...prev, ...newMedia]);
+    setErrors(prev => ({ ...prev, media: "" }));
+  };
+
+  // 👇 Hapus media
+  const removeMedia = (index: number) => {
+    const newMedia = submissionMedia.filter((_, i) => i !== index);
+    setSubmissionMedia(newMedia);
+  };
+
+
   // Remove logo
   const removeLogo = () => {
     setFormData(prev => ({ ...prev, logo: null }));
@@ -241,6 +304,7 @@ export default function ModernSubmissionForm() {
 
     const submitData = new FormData();
 
+    // Loop data form biasa dan tambahkan ke FormData
     Object.entries(formData).forEach(([key, value]) => {
       if (value !== null) {
         // 👇 mapping 'logo' ke 'thumbnail_picture'
@@ -252,10 +316,19 @@ export default function ModernSubmissionForm() {
       }
     });
 
+    // 👇 Perbaikan: Hapus '[]' dari nama field. Multer akan mengumpulkannya secara otomatis
+    submissionMedia.forEach((media) => {
+      submitData.append('media_files', media.file);
+    });
+
+
     try {
       const response = await fetch("http://localhost:5000/api/submissions", {
         method: "POST",
         body: submitData,
+        // 👇 Penting: Jangan atur Content-Type secara manual. 
+        // Browser akan mengaturnya secara otomatis (termasuk boundary) saat menggunakan FormData.
+        // headers: { 'Content-Type': 'multipart/form-data' },
       });
 
       const result = await response.json();
@@ -263,6 +336,7 @@ export default function ModernSubmissionForm() {
       if (response.ok && result.success) {
         setSubmitStatus("success");
         setStatusMessage("Formulir berhasil dikirim!");
+        // Reset form
         setFormData({
           nama: "",
           alamat: "",
@@ -272,9 +346,10 @@ export default function ModernSubmissionForm() {
           website: "",
           email: "",
           deskripsi: "",
-          logo: null, // reset logo
+          logo: null, 
         });
         setLogoPreview(null);
+        setSubmissionMedia([]); // 👇 Reset media
       } else {
         setSubmitStatus("error");
         setStatusMessage(
@@ -291,18 +366,27 @@ export default function ModernSubmissionForm() {
   };
 
 
-
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">
-            Daftarkan Bisnis Anda
-          </h1>
-          <p className="text-lg text-gray-600">
-            Bergabunglah dengan BatamPortal dan jangkau lebih banyak pelanggan
-          </p>
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center justify-center gap-4 mb-8">
+            <button
+              onClick={() => router.back()}
+              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-6 h-6 text-gray-600" />
+            </button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Daftarkan Bisnis Anda
+              </h1>
+              <p className="text-lg text-gray-600">
+                Bergabunglah dengan BatamPortal dan jangkau lebih banyak pelanggan
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Form */}
@@ -608,10 +692,11 @@ export default function ModernSubmissionForm() {
               ) : (
                 <div className="relative">
                   <div className="border border-gray-300 rounded-lg p-4 flex items-center gap-4">
+                    {/* Menggunakan 'object-contain' untuk logo */}
                     <img 
                       src={logoPreview} 
                       alt="Preview" 
-                      className="w-16 h-16 object-cover rounded-lg"
+                      className="w-16 h-16 object-contain rounded-lg"
                     />
                     <div className="flex-1">
                       <p className="font-medium text-gray-900">{formData.logo ?.name}</p>
@@ -637,6 +722,65 @@ export default function ModernSubmissionForm() {
                 </p>
               )}
             </div>
+
+            {/* 👇 Bagian Unggah Media Tambahan (Gambar & Video) */}
+            <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                    Foto & Video Lainnya (Opsional)
+                </label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                    <input
+                        type="file"
+                        accept="image/*,video/*"
+                        multiple // Mengizinkan unggahan banyak file
+                        onChange={handleMediaChange}
+                        className="hidden"
+                        id="media-upload"
+                    />
+                    <label htmlFor="media-upload" className="cursor-pointer">
+                        <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-600 mb-2">
+                            <span className="font-medium text-blue-600">Klik untuk upload</span> atau drag & drop
+                        </p>
+                        <p className="text-sm text-gray-500">Gambar dan Video (Max 10MB per file)</p>
+                    </label>
+                </div>
+                {errors.media && (
+                    <p className="text-sm text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4" />
+                        {errors.media}
+                    </p>
+                )}
+            </div>
+
+            {/* 👇 Pratinjau media yang diunggah */}
+            {submissionMedia.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {submissionMedia.map((media, index) => (
+                        <div key={index} className="relative group rounded-lg overflow-hidden border border-gray-300">
+                            {media.type === 'photo' ? (
+                                <img
+                                    src={media.preview}
+                                    alt={`Media ${index + 1}`}
+                                    className="w-full h-32 object-cover"
+                                />
+                            ) : (
+                                <div className="w-full h-32 bg-gray-900 flex items-center justify-center relative">
+                                    <video src={media.preview} className="w-full h-full object-cover"></video>
+                                    <VideoIcon className="absolute w-8 h-8 text-white opacity-70" />
+                                </div>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => removeMedia(index)}
+                                className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
           </div>
 
           {/* Submit Button */}
@@ -644,47 +788,37 @@ export default function ModernSubmissionForm() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-blue-600 text-white py-4 px-6 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              className={`w-full py-4 px-6 rounded-lg font-medium transition-colors ${
+                isLoading 
+                  ? 'bg-blue-400 cursor-not-allowed' 
+                  : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+              } text-white`}
             >
               {isLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Mengirim Data...
-                </>
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="animate-spin" size={20} />
+                  Mengirim...
+                </span>
               ) : (
-                <>
-                  <Upload className="w-5 h-5" />
-                  Kirim Pendaftaran
-                </>
+                'Kirimkan Pendaftaran'
               )}
             </button>
-
-            {/* Status Message */}
-            {statusMessage && (
-              <div className={`mt-4 p-4 rounded-lg flex items-center gap-3 ${
-                submitStatus === 'success' 
-                  ? 'bg-green-50 text-green-700 border border-green-200' 
-                  : submitStatus === 'error'
-                  ? 'bg-red-50 text-red-700 border border-red-200'
-                  : 'bg-blue-50 text-blue-700 border border-blue-200'
-              }`}>
-                {submitStatus === 'success' && <CheckCircle className="w-5 h-5 flex-shrink-0" />}
-                {submitStatus === 'error' && <AlertCircle className="w-5 h-5 flex-shrink-0" />}
-                <p className="text-sm font-medium">{statusMessage}</p>
-              </div>
-            )}
           </div>
-        </form>
 
-        {/* Footer */}
-        <div className="text-center mt-8">
-          <p className="text-sm text-gray-500">
-            Dengan mengirim formulir ini, Anda menyetujui{' '}
-            <a href="/terms" className="text-blue-600 hover:text-blue-700">Syarat & Ketentuan</a>
-            {' '}dan{' '}
-            <a href="/privacy" className="text-blue-600 hover:text-blue-700">Kebijakan Privasi</a> kami.
-          </p>
-        </div>
+          {/* Status Message */}
+          {submitStatus !== 'idle' && (
+            <div 
+              className={`p-4 rounded-lg flex items-center gap-3 transition-opacity duration-300 ${
+                submitStatus === 'success' 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-red-100 text-red-800'
+              }`}
+            >
+              {submitStatus === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+              <p className="text-sm font-medium">{statusMessage}</p>
+            </div>
+          )}
+        </form>
       </div>
     </div>
   );
