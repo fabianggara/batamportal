@@ -246,7 +246,7 @@ export default function SubmissionsPage() {
 
   // Navigasi ke halaman detail submission
   const handleViewSubmission = (id: number) => {
-    router.push(`/itemDetail/${id}`);
+    router.push(`/admin/submissions/preview/${id}`);
   };
 
   // Navigasi ke halaman edit submission
@@ -758,7 +758,7 @@ export default function SubmissionsPage() {
                       <button
                         onClick={() => handleViewSubmission(submission.id)}
                         className="text-blue-600 hover:text-blue-900 p-2 rounded-lg hover:bg-blue-50 transition-colors"
-                        title="Lihat Detail"
+                        title="Lihat Preview"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
