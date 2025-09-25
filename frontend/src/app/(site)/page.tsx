@@ -1,7 +1,9 @@
 'use client'
 
+import Link from "next/link";
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation'; 
+import Image from 'next/image';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -26,6 +28,7 @@ import {
   Sun,
   Moon
 } from 'lucide-react';
+
 interface Submission {
   id: number;
   place_name: string;
@@ -41,23 +44,21 @@ interface Submission {
   updated_at?: string;
 }
 
-
 const HomePage = () => {
   const router = useRouter();
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [activeCategory, setActiveCategory] = useState(0);
+  const [activeCategory, setActiveCategory] = useState<number | null>(null);
   const [searchFocused, setSearchFocused] = useState(false);
   const [statsVisible, setStatsVisible] = useState(false);
   const [timeOfDay, setTimeOfDay] = useState<'morning' | 'afternoon' | 'evening'>('morning');
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
 
-
   // Fetch submissions dari backend
   useEffect(() => {
     const fetchSubmissions = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/submissions"); // sesuaikan dengan baseURL backend
+        const res = await fetch("http://localhost:5000/api/submissions");
         const json = await res.json();
         if (json.success) {
           setSubmissions(json.data);
@@ -68,7 +69,6 @@ const HomePage = () => {
         setLoading(false);
       }
     };
-
     fetchSubmissions();
   }, []);
 
@@ -78,69 +78,62 @@ const HomePage = () => {
     if (hour < 12) setTimeOfDay('morning');
     else if (hour < 18) setTimeOfDay('afternoon');
     else setTimeOfDay('evening');
-
-    // Auto-scroll stats when they come into view
+    
     const timer = setTimeout(() => setStatsVisible(true), 1000);
     return () => clearTimeout(timer);
   }, []);
 
-  // Enhanced categories with real icons and colors
+  // Enhanced categories dengan routing yang konsisten
   const categories = [
-    { icon: Building, label: "Akomodasi", color: "from-blue-500 to-blue-600", count: "120+" },
-    { icon: Utensils, label: "Kuliner", color: "from-orange-500 to-red-500", count: "85+" },
-    { icon: MapPin, label: "Wisata", color: "from-green-500 to-emerald-600", count: "67+" },
-    { icon: Camera, label: "Hiburan", color: "from-purple-500 to-pink-500", count: "45+" },
-    { icon: Car, label: "Transportasi", color: "from-indigo-500 to-blue-500", count: "30+" },
-    { icon: Briefcase, label: "Bisnis", color: "from-gray-600 to-gray-700", count: "28+" },
+    { 
+      icon: Building, 
+      label: "Akomodasi", 
+      color: "from-blue-500 to-blue-600", 
+      count: "120+",
+      link: "/kategori/akomodasi",
+      slug: "akomodasi"
+    },
+    { 
+      icon: Utensils, 
+      label: "Kuliner", 
+      color: "from-orange-500 to-red-500", 
+      count: "85+",
+      link: "/kategori/kuliner",
+      slug: "kuliner"
+    },
+    { 
+      icon: MapPin, 
+      label: "Wisata", 
+      color: "from-green-500 to-emerald-600", 
+      count: "67+",
+      link: "/kategori/wisata",
+      slug: "wisata"
+    },
+    { 
+      icon: Camera, 
+      label: "Hiburan", 
+      color: "from-purple-500 to-pink-500", 
+      count: "45+",
+      link: "/kategori/hiburan",
+      slug: "hiburan"
+    },
+    { 
+      icon: Car, 
+      label: "Transportasi", 
+      color: "from-indigo-500 to-blue-500", 
+      count: "30+",
+      link: "/kategori/transportasi",
+      slug: "transportasi"
+    },
+    { 
+      icon: Briefcase, 
+      label: "Bisnis", 
+      color: "from-gray-600 to-gray-700", 
+      count: "28+",
+      link: "/kategori/bisnis",
+      slug: "bisnis"
+    },
   ];
-
-  // Enhanced recommendations with more realistic data
-  // const recommendations = [
-  //   {
-  //     id: 1,
-  //     name: "Harris Hotel Batam Center",
-  //     description: "Hotel mewah dengan fasilitas lengkap di jantung kota Batam",
-  //     image: "/api/placeholder/300/200",
-  //     tag: "Hot Deal",
-  //     rating: 4.8,
-  //     price: "Rp 750.000",
-  //     location: "Batam Center",
-  //     category: "Akomodasi"
-  //   },
-  //   {
-  //     id: 2,
-  //     name: "Pantai Melur",
-  //     description: "Pantai indah dengan pasir putih dan air jernih yang memukau",
-  //     image: "/api/placeholder/300/200", 
-  //     tag: "Trending",
-  //     rating: 4.6,
-  //     visitors: "2.3k",
-  //     location: "Galang",
-  //     category: "Wisata"
-  //   },
-  //   {
-  //     id: 3,
-  //     name: "Rumah Makan Sederhana",
-  //     description: "Kuliner khas Batam dengan cita rasa autentik dan harga terjangkau",
-  //     image: "/api/placeholder/300/200",
-  //     tag: "Local Favorite", 
-  //     rating: 4.7,
-  //     price: "Rp 50.000",
-  //     location: "Nagoya",
-  //     category: "Kuliner"
-  //   },
-  //   {
-  //     id: 4,
-  //     name: "Batam Mini Golf",
-  //     description: "Arena mini golf outdoor dengan pemandangan kota yang menakjubkan",
-  //     image: "/api/placeholder/300/200",
-  //     tag: "Family Fun",
-  //     rating: 4.5,
-  //     visitors: "1.8k",
-  //     location: "Nagoya Hill",
-  //     category: "Hiburan"
-  //   }
-  // ];
 
   // Dynamic slides with time-based content
   const slides = [
@@ -156,23 +149,25 @@ const HomePage = () => {
       title: "KULINER TERBAIK",
       subtitle: "Nikmati Cita Rasa Khas Batam",
       image: "/api/placeholder/1200/400",
-      cta: "Coba Sekarang"
+      cta: "Coba Sekarang",
+      link: "/kategori/kuliner"
     },
     {
       id: 3,
       title: "DESTINASI WISATA",
       subtitle: "Keindahan Alam Yang Memukau",
       image: "/api/placeholder/1200/400", 
-      cta: "Kunjungi"
+      cta: "Kunjungi",
+      link: "/kategori/wisata"
     }
   ];
 
   // Statistics counter
   const stats = [
-    { icon: Building, label: "Total Bisnis", value: 350, suffix: "+" },
+    { icon: Building, label: "Total Bisnis", value: 375, suffix: "+" },
     { icon: Users, label: "Pengguna Aktif", value: 12500, suffix: "+" },
-    { icon: Star, label: "Rating Rata-rata", value: 4.7, suffix: "/5" },
-    { icon: Award, label: "Tahun Berpengalaman", value: 5, suffix: "" }
+    { icon: Star, label: "Rating Rata-rata", value: 4.8, suffix: "/5" },
+    { icon: Award, label: "Partner Terpercaya", value: 50, suffix: "+" }
   ];
 
   const nextSlide = () => {
@@ -189,16 +184,6 @@ const HomePage = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // const getTagColor = (tag: string) => {
-  //   switch (tag) {
-  //     case 'Hot Deal': return 'bg-red-500';
-  //     case 'Trending': return 'bg-blue-500';
-  //     case 'Local Favorite': return 'bg-green-500';
-  //     case 'Family Fun': return 'bg-purple-500';
-  //     default: return 'bg-orange-500';
-  //   }
-  // };
-
   const getTimeIcon = () => {
     switch (timeOfDay) {
       case 'morning': return <Sun className="w-5 h-5 text-yellow-500" />;
@@ -207,11 +192,14 @@ const HomePage = () => {
     }
   };
 
+  const handleCategoryClick = (index: number) => {
+    setActiveCategory(index);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section with Enhanced Search */}
       <div className="bg-white shadow-lg relative overflow-hidden">
-        {/* Background Pattern */}
         <div className="absolute inset-0 opacity-5">
           <div className="absolute top-10 left-10 w-20 h-20 bg-blue-500 rounded-full animate-pulse"></div>
           <div className="absolute top-32 right-20 w-16 h-16 bg-green-500 rounded-full animate-bounce delay-1000"></div>
@@ -219,7 +207,6 @@ const HomePage = () => {
         </div>
         
         <div className="relative max-w-6xl mx-auto px-4 py-8">
-          {/* Time-based Greeting */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-2 mb-4">
               {getTimeIcon()}
@@ -231,8 +218,6 @@ const HomePage = () => {
               Platform terpercaya untuk menemukan bisnis dan destinasi terbaik di Kota Batam
             </p>
           </div>
-
-          {/* Enhanced Search Bar */}
           <div className="relative max-w-2xl mx-auto">
             <div className={`relative transition-all duration-300 ${searchFocused ? 'transform scale-105' : ''}`}>
               <input
@@ -251,16 +236,20 @@ const HomePage = () => {
                 </button>
               </div>
             </div>
-            
-            {/* Quick Search Suggestions */}
             <div className="flex flex-wrap gap-2 mt-4 justify-center">
-              {['Hotel Murah', 'Kuliner Khas', 'Pantai Indah', 'Spa & Massage'].map((suggestion, index) => (
-                <button 
+              {[
+                { label: 'Hotel Murah', link: '/kategori/akomodasi' },
+                { label: 'Kuliner Khas', link: '/kategori/kuliner' },
+                { label: 'Pantai Indah', link: '/kategori/wisata' },
+                { label: 'Spa & Massage', link: '/kategori/hiburan' }
+              ].map((suggestion, index) => (
+                <Link 
                   key={index}
-                  className="px-4 py-2 bg-gray-100 hover:bg-blue-100 hover:text-blue-600 rounded-full text-sm transition-colors"
+                  href={suggestion.link}
+                  className="px-4 py-2 bg-gray-100 hover:bg-blue-100 hover:text-blue-600 rounded-full text-sm transition-colors cursor-pointer"
                 >
-                  {suggestion}
-                </button>
+                  {suggestion.label}
+                </Link>
               ))}
             </div>
           </div>
@@ -271,38 +260,62 @@ const HomePage = () => {
         
         {/* Enhanced Categories Section */}
         <section>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Jelajahi Kategori</h2>
-            <button className="text-blue-600 hover:text-blue-700 flex items-center gap-1">
-              Lihat Semua <ArrowRight className="w-4 h-4" />
-            </button>
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-3xl font-bold text-gray-800 mb-2">Jelajahi Kategori</h2>
+              <p className="text-gray-600">Temukan berbagai pilihan menarik di Batam</p>
+            </div>
+            <Link 
+              href="/category" 
+              className="text-blue-600 hover:text-blue-700 flex items-center gap-2 font-medium transition-colors group"
+            >
+              Lihat Semua 
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {categories.map((category, index) => {
               const Icon = category.icon;
               return (
-                <div
+                <Link
                   key={index}
-                  onClick={() => setActiveCategory(index)}
-                  className={`group relative overflow-hidden rounded-xl p-6 cursor-pointer transition-all duration-300 transform hover:scale-105 hover:shadow-lg ${
+                  href={category.link}
+                  onClick={() => handleCategoryClick(index)}
+                  className={`group relative overflow-hidden rounded-2xl p-6 cursor-pointer transition-all duration-300 transform hover:scale-105 hover:shadow-xl ${
                     activeCategory === index 
-                      ? 'shadow-xl ring-2 ring-blue-500' 
-                      : 'shadow-md'
+                      ? 'shadow-2xl ring-2 ring-blue-500 ring-offset-2' 
+                      : 'shadow-lg hover:shadow-xl'
                   }`}
                 >
-                  <div className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-90 group-hover:opacity-100 transition-opacity`}></div>
+                  {/* Background Gradient */}
+                  <div className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-90 group-hover:opacity-100 transition-all duration-300`}></div>
+                  
+                  {/* Decorative Elements */}
+                  <div className="absolute -top-4 -right-4 w-8 h-8 bg-white bg-opacity-20 rounded-full"></div>
+                  <div className="absolute -bottom-2 -left-2 w-6 h-6 bg-white bg-opacity-10 rounded-full"></div>
+                  
+                  {/* Content */}
                   <div className="relative z-10 text-center text-white">
-                    <Icon className="w-8 h-8 mx-auto mb-3 group-hover:animate-bounce" />
-                    <h3 className="font-semibold text-sm mb-1">{category.label}</h3>
-                    <p className="text-xs opacity-90">{category.count}</p>
+                    <div className="mb-4">
+                      <Icon className="w-8 h-8 mx-auto mb-3 group-hover:scale-110 transition-transform duration-300" />
+                    </div>
+                    <h3 className="font-semibold text-sm mb-1 group-hover:text-white transition-colors">
+                      {category.label}
+                    </h3>
+                    <p className="text-xs opacity-90 group-hover:opacity-100 transition-opacity">
+                      {category.count} tempat
+                    </p>
                   </div>
                   
-                  {/* Sparkle effect */}
-                  <div className="absolute top-2 right-2">
+                  {/* Sparkle Effect */}
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <Zap className="w-3 h-3 text-yellow-300 animate-pulse" />
                   </div>
-                </div>
+                  
+                  {/* Hover Shine Effect */}
+                  <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-300 transform -skew-x-12 -translate-x-full group-hover:translate-x-full"></div>
+                </Link>
               );
             })}
           </div>
@@ -314,7 +327,6 @@ const HomePage = () => {
             <h2 className="text-2xl font-bold mb-2">Dipercaya Ribuan Pengguna</h2>
             <p className="opacity-90">Platform #1 untuk menemukan bisnis terbaik di Batam</p>
           </div>
-          
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {stats.map((stat, index) => {
               const Icon = stat.icon;
@@ -336,28 +348,31 @@ const HomePage = () => {
           </div>
         </section>
 
-
         {/* Enhanced Recommendations Section */}
         <section>
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">Rekomendasi Terpopuler</h2>
+              <h2 className="text-3xl font-bold text-gray-800 mb-2">Rekomendasi Terpopuler</h2>
               <p className="text-gray-600">Pilihan terbaik berdasarkan review pengguna</p>
             </div>
           </div>
+          
           {loading ? (
-            <p className="text-center text-gray-500">Loading data...</p>
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-500">Loading data...</p>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {submissions.map((item) => (
+              {submissions.slice(0, 8).map((item) => (
                 <div 
                   key={item.id} 
-                  className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2"
+                  className="group bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 cursor-pointer"
+                  onClick={() => router.push(`/submissions/preview/${item.id}`)}
                 >
-                  {/* Image */}
                   <div className="relative overflow-hidden">
                     {item.thumbnail_picture ? (
-                      <img
+                      <Image
                         src={
                           item.thumbnail_picture.startsWith("http")
                             ? item.thumbnail_picture
@@ -366,47 +381,44 @@ const HomePage = () => {
                         alt={item.place_name}
                         width={500}
                         height={200}
-                        className="w-full h-48 object-c over"
+                        className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     ) : (
                       <div className="bg-gradient-to-br from-gray-200 to-gray-300 h-48 flex items-center justify-center text-gray-500">
                         <Camera className="w-12 h-12" />
                       </div>
                     )}
-
-                    {/* Category Badge */}
-                    <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
+                    <div className="absolute top-3 right-3 bg-black/50 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full">
                       {item.category}
                     </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </div>
 
-                  {/* Content */}
-                  <div className="p-4">
+                  <div className="p-5">
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-bold text-gray-800 group-hover:text-blue-600 transition-colors">
+                      <h3 className="font-bold text-gray-800 group-hover:text-blue-600 transition-colors line-clamp-1">
                         {item.place_name}
                       </h3>
                     </div>
-
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">{item.description}</p>
-
-                    <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
+                    
+                    <p className="text-sm text-gray-600 mb-3 line-clamp-2 leading-relaxed">
+                      {item.description || 'Temukan pengalaman menarik di tempat ini.'}
+                    </p>
+                    
+                    <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
                       <div className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3" />
-                        {item.address}
+                        <MapPin className="w-3 h-3 flex-shrink-0" />
+                        <span className="line-clamp-1">{item.address}</span>
                       </div>
-                      {item.contact && (
-                        <div className="font-semibold text-blue-600">{item.contact}</div>
-                      )}
                     </div>
-
+                    
                     <button 
-                      className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform group-hover:scale-105"
+                      className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2.5 rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform group-hover:scale-105 font-medium"
                       onClick={(e) => {
-                        e.stopPropagation(); // ← PENTING: Mencegah double click
-                        router.push(`/itemDetail/${item.id}`);
+                        e.stopPropagation();
+                        router.push(`/category/[categoriesName]/detail/${item.id}`);
                       }}
-                      >
+                    >
                       Lihat Detail
                     </button>
                   </div>
@@ -414,8 +426,20 @@ const HomePage = () => {
               ))}
             </div>
           )}
-        </section>
 
+          {/* View More Button */}
+          {submissions.length > 8 && (
+            <div className="text-center mt-8">
+              <Link
+                href="/kategori"
+                className="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 font-medium group"
+              >
+                Lihat Semua Rekomendasi
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+          )}
+        </section>
 
         {/* Enhanced Carousel Section */}
         <section className="relative">
@@ -427,13 +451,11 @@ const HomePage = () => {
               {slides.map((slide, index) => (
                 <div key={slide.id} className="w-full flex-shrink-0 relative">
                   <div className="h-80 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 flex items-center justify-center relative overflow-hidden">
-                    {/* Animated Background Pattern */}
                     <div className="absolute inset-0 opacity-20">
                       <div className="absolute top-10 left-10 w-32 h-32 bg-white rounded-full animate-ping"></div>
                       <div className="absolute bottom-20 right-20 w-24 h-24 bg-white rounded-full animate-pulse delay-1000"></div>
                       <div className="absolute top-1/2 left-1/3 w-16 h-16 bg-white rounded-full animate-bounce delay-500"></div>
                     </div>
-                    
                     <div className="relative z-10 text-center text-white max-w-4xl px-8">
                       <h2 className="text-4xl md:text-6xl font-bold mb-4 animate-fade-in">
                         {slide.title}
@@ -441,16 +463,17 @@ const HomePage = () => {
                       <p className="text-xl md:text-2xl mb-8 opacity-90">
                         {slide.subtitle}
                       </p>
-                      <button className="bg-white text-blue-600 px-8 py-3 rounded-full font-semibold hover:bg-gray-100 transition-colors transform hover:scale-105">
+                      <Link 
+                        href={slide.link || '/kategori'}
+                        className="inline-block bg-white text-blue-600 px-8 py-3 rounded-full font-semibold hover:bg-gray-100 transition-colors transform hover:scale-105"
+                      >
                         {slide.cta}
-                      </button>
+                      </Link>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-            
-            {/* Enhanced Navigation */}
             <button
               onClick={prevSlide}
               className="absolute left-6 top-1/2 transform -translate-y-1/2 bg-white/30 hover:bg-white/50 rounded-full p-3 text-white transition-all backdrop-blur-sm"
@@ -463,8 +486,6 @@ const HomePage = () => {
             >
               <ChevronRight className="w-6 h-6" />
             </button>
-            
-            {/* Slide Indicators */}
             <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex gap-2">
               {slides.map((_, index) => (
                 <button
@@ -485,9 +506,12 @@ const HomePage = () => {
           <p className="text-xl mb-6 opacity-90">
             Daftarkan bisnis Anda dan jangkau ribuan pelanggan potensial!
           </p>
-          <button className="bg-white text-green-600 px-8 py-3 rounded-full font-semibold hover:bg-gray-100 transition-all transform hover:scale-105">
+          <Link
+            href="/submission"
+            className="inline-block bg-white text-green-600 px-8 py-3 rounded-full font-semibold hover:bg-gray-100 transition-all transform hover:scale-105"
+          >
             Daftar Sekarang - GRATIS!
-          </button>
+          </Link>
         </section>
       </div>
     </div>
