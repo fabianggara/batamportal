@@ -1,5 +1,4 @@
-// frontend/src/app/(site)/itemDetail/[id]/page.tsx
-
+// frontend/src/app/(site)/category/[categoriesName]/detail/itemDetail/[id]/page.tsx
 'use client'
 
 import React, { useState, useEffect } from 'react';
@@ -37,7 +36,6 @@ import {
         ParkingSquare,
         UtensilsCrossed,
         Dumbbell,
-        // SwimmingPool,
         Coffee,
         AirVent,
         Dog,
@@ -48,7 +46,9 @@ import {
         ShowerHead,
         CreditCard,
         Check,
-        TrendingUp
+        TrendingUp,
+        ChevronDown,
+        ArrowRight
         } from 'lucide-react';
 
         interface Submission {
@@ -90,7 +90,6 @@ const dummyData = {
         },
         amenities: [
             { name: 'WiFi Gratis', icon: Wifi, isAvailable: true },
-            { name: 'Kolam Renang', icon: Bath, isAvailable: true },
             { name: 'Parkir Gratis', icon: ParkingSquare, isAvailable: true },
             { name: 'Restoran', icon: UtensilsCrossed, isAvailable: true },
             { name: 'Layanan Kamar', icon: Bell, isAvailable: true },
@@ -137,7 +136,6 @@ const dummyData = {
             ]
         }
     },
-    // Bisa tambahkan data dummy untuk kategori lain di sini
     'kuliner-5678': {
         ratings: {
             overall: 4.5,
@@ -183,7 +181,6 @@ const dummyData = {
 const getAmenityIcon = (name: string) => {
     switch (name) {
         case 'WiFi Gratis': return Wifi;
-        case 'Kolam Renang': return Bath;
         case 'Parkir Gratis': return ParkingSquare;
         case 'Restoran': return UtensilsCrossed;
         case 'Layanan Kamar': return DoorClosed;
@@ -220,6 +217,28 @@ export default function ItemDetailPage() {
     const [relatedItems, setRelatedItems] = useState<Submission[]>([]);
     const [dummyAccommodationData, setDummyAccommodationData] = useState<any>(null);
     const [mapUrl, setMapUrl] = useState('');
+    
+    // Booking states
+    const [checkInDate, setCheckInDate] = useState('2025-09-28');
+    const [checkOutDate, setCheckOutDate] = useState('2025-09-29');
+    const [guests, setGuests] = useState(2);
+    const [rooms, setRooms] = useState(1);
+
+    // Helper functions for booking
+    const formatDateDisplay = (dateString: string) => {
+        const date = new Date(dateString);
+        const days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        
+        return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
+    };
+
+    const calculateNights = () => {
+        const checkIn = new Date(checkInDate);
+        const checkOut = new Date(checkOutDate);
+        const timeDiff = checkOut.getTime() - checkIn.getTime();
+        return Math.ceil(timeDiff / (1000 * 3600 * 24));
+    };
 
     useEffect(() => {
         const fetchItemDetail = async () => {
@@ -360,6 +379,20 @@ export default function ItemDetailPage() {
         setCurrentMediaIndex((prev) => (prev - 1 + media.length) % media.length);
     };
 
+    const handleBooking = () => {
+        // Redirect to booking form with booking data
+        const bookingParams = new URLSearchParams({
+            itemId: item?.id?.toString() || '',
+            hotelName: item?.place_name || '',
+            checkIn: checkInDate,
+            checkOut: checkOutDate,
+            guests: guests.toString(),
+            rooms: rooms.toString()
+        });
+        
+        router.push(`/form/accommodationBook?${bookingParams.toString()}`);
+    };
+
     if (loading) {
         return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -430,6 +463,91 @@ export default function ItemDetailPage() {
             </div>
             </div>
         </div>
+
+        {/* Booking Bar for Accommodation */}
+        {item.category?.toLowerCase() === 'akomodasi' && (
+            <div className="bg-white border-b border-gray-200 py-4">
+                <div className="max-w-6xl mx-auto px-4">
+                    <div className="bg-blue-50 rounded-2xl p-6 border border-blue-200">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            {/* Check-in Date */}
+                            <div>
+                                <label className="text-sm font-semibold text-blue-700 mb-2 block">Check-in</label>
+                                <div className="relative">
+                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
+                                    <input
+                                        type="date"
+                                        value={checkInDate}
+                                        onChange={(e) => setCheckInDate(e.target.value)}
+                                        className="w-full pl-10 pr-4 py-3 border border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Check-out Date */}
+                            <div>
+                                <label className="text-sm font-semibold text-blue-700 mb-2 block">Check-out</label>
+                                <div className="relative">
+                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
+                                    <input
+                                        type="date"
+                                        value={checkOutDate}
+                                        onChange={(e) => setCheckOutDate(e.target.value)}
+                                        className="w-full pl-10 pr-4 py-3 border border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Guests & Rooms */}
+                            <div>
+                                <label className="text-sm font-semibold text-blue-700 mb-2 block">Tamu & Kamar</label>
+                                <div className="relative">
+                                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
+                                    <select
+                                        value={`${guests}-${rooms}`}
+                                        onChange={(e) => {
+                                            const [g, r] = e.target.value.split('-').map(Number);
+                                            setGuests(g);
+                                            setRooms(r);
+                                        }}
+                                        className="w-full pl-10 pr-10 py-3 border border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white appearance-none"
+                                    >
+                                        <option value="1-1">1 tamu, 1 kamar</option>
+                                        <option value="2-1">2 tamu, 1 kamar</option>
+                                        <option value="3-1">3 tamu, 1 kamar</option>
+                                        <option value="4-1">4 tamu, 1 kamar</option>
+                                        <option value="2-2">2 tamu, 2 kamar</option>
+                                        <option value="4-2">4 tamu, 2 kamar</option>
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
+                                </div>
+                            </div>
+
+                            {/* Search Button */}
+                            <div className="flex items-end">
+                                <button 
+                                    onClick={handleBooking}
+                                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+                                >
+                                    Konfirm Pencarian
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div className="mt-4 flex items-center gap-4 text-sm text-blue-700">
+                            <div className="flex items-center gap-2">
+                                <Clock className="w-4 h-4" />
+                                <span>{calculateNights()} malam</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Users className="w-4 h-4" />
+                                <span>{guests} tamu dalam {rooms} kamar</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
 
         <div className="max-w-6xl mx-auto px-4 py-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -568,7 +686,7 @@ export default function ItemDetailPage() {
                         <p className="text-gray-600 leading-relaxed text-sm">{item.description}</p>
                         </div>
                     )}
-                    
+                   
                     {dummyAccommodationData?.amenities && (
                         <div className="mt-6">
                         <h3 className="font-bold text-gray-800 text-lg mb-4">Fasilitas</h3>
@@ -615,7 +733,9 @@ export default function ItemDetailPage() {
                                         <p className="text-xl font-bold text-blue-600">
                                             {formatPrice(room.price)}
                                         </p>
-                                        <button className="mt-2 w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                                        <button
+                                            onClick={handleBooking}
+                                            className="mt-2 w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm">
                                             Pesan Sekarang
                                         </button>
                                     </div>
@@ -685,7 +805,7 @@ export default function ItemDetailPage() {
                     {relatedItems.map((relatedItem) => (
                         <div
                         key={relatedItem.id}
-                        onClick={() => router.push(`/itemDetail/${relatedItem.id}`)}
+                        onClick={() => router.push(`/category/${relatedItem.category}/detail/itemDetail/${relatedItem.id}`)}
                         className="flex gap-3 p-3 border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
                         >
                         <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
@@ -723,6 +843,55 @@ export default function ItemDetailPage() {
 
             {/* Sidebar */}
             <div className="space-y-6">
+                {/* Booking Summary for Accommodation */}
+                {item.category?.toLowerCase() === 'akomodasi' && (
+                    <div className="bg-white rounded-2xl shadow-sm p-6 border-2 border-blue-200">
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">Ringkasan Pemesanan</h3>
+                        
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                    <Calendar className="w-4 h-4 text-blue-600" />
+                                    <span className="text-sm font-medium">Check-in</span>
+                                </div>
+                                <span className="font-bold text-blue-800">{formatDateDisplay(checkInDate)}</span>
+                            </div>
+                            
+                            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                    <Calendar className="w-4 h-4 text-blue-600" />
+                                    <span className="text-sm font-medium">Check-out</span>
+                                </div>
+                                <span className="font-bold text-blue-800">{formatDateDisplay(checkOutDate)}</span>
+                            </div>
+                            
+                            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                    <Clock className="w-4 h-4 text-green-600" />
+                                    <span className="text-sm font-medium">Durasi</span>
+                                </div>
+                                <span className="font-bold text-green-800">{calculateNights()} malam</span>
+                            </div>
+                            
+                            <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                    <Users className="w-4 h-4 text-purple-600" />
+                                    <span className="text-sm font-medium">Tamu & Kamar</span>
+                                </div>
+                                <span className="font-bold text-purple-800">{guests} tamu, {rooms} kamar</span>
+                            </div>
+                        </div>
+                        
+                        <button 
+                            onClick={handleBooking}
+                            className="w-full mt-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center justify-center gap-2"
+                        >
+                            <span>Lanjut ke Pemesanan</span>
+                            <ArrowRight className="w-5 h-5" />
+                        </button>
+                    </div>
+                )}
+
                 {/* Contact Information */}
                 <div className="bg-white rounded-2xl shadow-sm p-6">
                 <h3 className="text-lg font-bold text-gray-800 mb-4">Informasi Kontak</h3>
