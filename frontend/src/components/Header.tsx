@@ -57,7 +57,9 @@ const Header = () => {
           href="/"
           className="flex items-center hover:opacity-80 transition-opacity"
         >
-          <h1 className="text-2xl font-bold text-gray-800">BatamPortal</h1>
+           <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                BatamPortal
+              </h1>
         </Link>
 
         <div className="flex items-center gap-4">

@@ -4,28 +4,38 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Definisi interface untuk hasil query yang lebih jelas
 export interface QueryResult {
     [key: string]: any;
 }
 
-export async function query(
-    query: string, 
-    values: any[] = []
-): Promise<QueryResult[]> {
-    const dbconnection = await mysql.createConnection({
+// Membuat connection pool
+const pool = mysql.createPool({
     host: process.env.MYSQL_HOST || 'localhost',
     // port: parseInt(process.env.MYSQL_PORT || '3306'),
     database: process.env.MYSQL_DATABASE || 'batamportal',
     user: process.env.MYSQL_USER || 'root',
     password: process.env.MYSQL_PASSWORD || '',
-    });
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+});
 
+// Fungsi untuk menjalankan query sederhana dari pool
+export const query = async (
+    sql: string,
+    params?: any[]
+): Promise<QueryResult[]> => {
+    const [rows] = await pool.execute(sql, params);
+    return rows as QueryResult[];
+};
+
+// Fungsi untuk mendapatkan koneksi khusus untuk transaksi
+export const getConnection = async () => {
     try {
-        const [results] = await dbconnection.execute(query, values);
-        dbconnection.end();
-        return results as QueryResult[];
+        const connection = await pool.getConnection();
+        return connection;
     } catch (error) {
-        dbconnection.end();
-        throw new Error(`Database query error: ${(error as Error).message}`);
+        throw new Error(`Failed to get connection from pool: ${(error as Error).message}`);
     }
-}
+};

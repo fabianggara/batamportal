@@ -3,13 +3,14 @@
 
 import Image from "next/image";
 import { useState, useEffect, useMemo } from "react";
-import { 
-  Search, 
-  Filter, 
-  Download, 
-  Eye, 
-  Edit, 
-  Trash2, 
+import { useRouter } from "next/navigation";
+import {
+  Search,
+  Filter,
+  Download,
+  Eye,
+  Edit,
+  Trash2,
   Calendar,
   MapPin,
   Phone,
@@ -20,10 +21,13 @@ import {
   Users,
   Mail,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Plus,
+  AlertTriangle,
+  Check
 } from "lucide-react";
 
-// Type definition sesuai dengan struktur database
+// Tipe data untuk objek submission
 type Submission = {
   id: number;
   place_name: string;
@@ -38,7 +42,122 @@ type Submission = {
   created_at: string;
 };
 
+// ---
+
+// Komponen Modal untuk konfirmasi penghapusan
+const DeleteModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  submissionName,
+  isDeleting
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  submissionName: string;
+  isDeleting: boolean;
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-md w-full p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="bg-red-100 rounded-full p-2">
+            <AlertTriangle className="w-6 h-6 text-red-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900">Hapus Submission</h3>
+        </div>
+
+        <p className="text-gray-600 mb-6">
+          Apakah Anda yakin ingin menghapus submission <strong>{submissionName}</strong>?
+          Tindakan ini tidak dapat dibatalkan.
+        </p>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            disabled={isDeleting}
+            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            Batal
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Menghapus...
+              </>
+            ) : (
+              'Hapus'
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ---
+
+// Komponen notifikasi toast
+const Toast = ({
+  message,
+  type,
+  isVisible,
+  onClose
+}: {
+  message: string;
+  type: 'success' | 'error';
+  isVisible: boolean;
+  onClose: () => void;
+}) => {
+  useEffect(() => {
+    if (isVisible) {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [isVisible, onClose]);
+
+  if (!isVisible) return null;
+
+  return (
+    <div className="fixed top-4 right-4 z-50 animate-slide-in">
+      <div className={`rounded-lg p-4 shadow-lg border max-w-md ${
+        type === 'success'
+          ? 'bg-green-50 border-green-200 text-green-800'
+          : 'bg-red-50 border-red-200 text-red-800'
+      }`}>
+        <div className="flex items-center gap-3">
+          {type === 'success' ? (
+            <Check className="w-5 h-5 text-green-600" />
+          ) : (
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+          )}
+          <p className="font-medium">{message}</p>
+          <button
+            onClick={onClose}
+            className="ml-auto text-gray-400 hover:text-gray-600"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ---
+
 export default function SubmissionsPage() {
+  const router = useRouter();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,21 +167,41 @@ export default function SubmissionsPage() {
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'category'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  // Fetch submissions from database
+  // CRUD states
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; submission: Submission | null }>({
+    isOpen: false,
+    submission: null
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; isVisible: boolean }>({
+    message: '',
+    type: 'success',
+    isVisible: false
+  });
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type, isVisible: true });
+  };
+
+  const hideToast = () => {
+    setToast(prev => ({ ...prev, isVisible: false }));
+  };
+
+  // Mengambil data submissions dari database
   const fetchSubmissions = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
       const response = await fetch(`${apiUrl}/api/submissions`);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
         setSubmissions(result.data || []);
       } else {
@@ -76,12 +215,107 @@ export default function SubmissionsPage() {
     }
   };
 
-  // Load data on component mount
+  // Fungsi untuk menghapus submission
+  const deleteSubmission = async (id: number) => {
+    setIsDeleting(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiUrl}/api/submissions/${id}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setSubmissions(prev => prev.filter(sub => sub.id !== id));
+        showToast('Submission berhasil dihapus', 'success');
+      } else {
+        throw new Error(result.error || 'Failed to delete submission');
+      }
+    } catch (error) {
+      console.error('Error deleting submission:', error);
+      showToast(
+        error instanceof Error ? error.message : 'Gagal menghapus submission',
+        'error'
+      );
+    } finally {
+      setIsDeleting(false);
+      setDeleteModal({ isOpen: false, submission: null });
+    }
+  };
+
+  // Navigasi ke halaman detail submission
+  const handleViewSubmission = (id: number) => {
+    router.push(`/itemDetail/${id}`);
+  };
+
+  // Navigasi ke halaman edit submission
+  const handleEditSubmission = (id: number) => {
+    router.push(`/admin/submissions/edit/${id}`);
+  };
+
+  // Membuka modal konfirmasi delete
+  const handleDeleteClick = (submission: Submission) => {
+    setDeleteModal({ isOpen: true, submission });
+  };
+
+  // Konfirmasi dan eksekusi penghapusan
+  const confirmDelete = () => {
+    if (deleteModal.submission) {
+      deleteSubmission(deleteModal.submission.id);
+    }
+  };
+
+  // Fungsi untuk ekspor data ke CSV
+  const exportToCSV = () => {
+    const headers = [
+      'ID',
+      'Nama Tempat',
+      'Alamat',
+      'Kategori',
+      'Sub Kategori',
+      'Deskripsi',
+      'Kontak',
+      'Email',
+      'Website',
+      'Tanggal Dibuat'
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...filteredSubmissions.map(sub => [
+        sub.id,
+        `"${sub.place_name}"`,
+        `"${sub.address}"`,
+        `"${sub.category || ''}"`,
+        `"${sub.subcategory || ''}"`,
+        `"${(sub.description || '').replace(/"/g, '""')}"`,
+        `"${sub.contact || ''}"`,
+        `"${sub.email || ''}"`,
+        `"${sub.website || ''}"`,
+        `"${new Date(sub.created_at).toLocaleDateString('id-ID')}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `submissions_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showToast('Data berhasil diekspor ke CSV', 'success');
+  };
+
+  // Mengambil data saat komponen pertama kali dimuat
   useEffect(() => {
     fetchSubmissions();
   }, []);
 
-  // Get unique categories and subcategories
+  // Mengambil daftar kategori unik menggunakan useMemo
   const categories = useMemo(() => {
     const cats = [...new Set(submissions
       .map(sub => sub.category)
@@ -90,6 +324,7 @@ export default function SubmissionsPage() {
     return cats.sort();
   }, [submissions]);
 
+  // Mengambil daftar subkategori unik berdasarkan kategori yang dipilih
   const subcategories = useMemo(() => {
     if (selectedKategori === 'all') {
       const subcats = [...new Set(submissions
@@ -107,11 +342,11 @@ export default function SubmissionsPage() {
     return subcats.sort();
   }, [submissions, selectedKategori]);
 
-  // Filter and search submissions
+  // Filtering, searching, dan sorting data submissions menggunakan useMemo
   const filteredSubmissions = useMemo(() => {
     let filtered = submissions;
 
-    // Filter by search term
+    // Filter berdasarkan search term
     if (searchTerm) {
       filtered = filtered.filter(sub =>
         sub.place_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -122,17 +357,17 @@ export default function SubmissionsPage() {
       );
     }
 
-    // Filter by category
+    // Filter berdasarkan kategori
     if (selectedKategori !== 'all') {
       filtered = filtered.filter(sub => sub.category === selectedKategori);
     }
 
-    // Filter by subcategory
+    // Filter berdasarkan subkategori
     if (selectedSubkategori !== 'all') {
       filtered = filtered.filter(sub => sub.subcategory === selectedSubkategori);
     }
 
-    // Sort submissions
+    // Sorting
     filtered = [...filtered].sort((a, b) => {
       let comparison = 0;
       switch (sortBy) {
@@ -152,15 +387,17 @@ export default function SubmissionsPage() {
     return filtered;
   }, [submissions, searchTerm, selectedKategori, selectedSubkategori, sortBy, sortOrder]);
 
+  // Mereset semua filter
   const clearFilters = () => {
     setSearchTerm("");
     setSelectedKategori("all");
     setSelectedSubkategori("all");
   };
 
+  // Menentukan warna tag kategori
   const getCategoryColor = (kategori: string | null) => {
     if (!kategori) return 'bg-gray-100 text-gray-800';
-    
+
     const colors: { [key: string]: string } = {
       'Akomodasi': 'bg-blue-100 text-blue-800',
       'Wisata': 'bg-green-100 text-green-800',
@@ -174,6 +411,7 @@ export default function SubmissionsPage() {
     return colors[kategori] || 'bg-gray-100 text-gray-800';
   };
 
+  // Tampilan saat loading
   if (isLoading) {
     return (
       <div className="p-6 space-y-6">
@@ -189,6 +427,7 @@ export default function SubmissionsPage() {
     );
   }
 
+  // Tampilan saat terjadi error
   if (error) {
     return (
       <div className="p-6 space-y-6">
@@ -214,8 +453,28 @@ export default function SubmissionsPage() {
     );
   }
 
+  // ---
+
+  // Tampilan utama halaman
   return (
     <div className="p-6 space-y-6">
+      {/* Toast Notification */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+      />
+
+      {/* Delete Modal */}
+      <DeleteModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, submission: null })}
+        onConfirm={confirmDelete}
+        submissionName={deleteModal.submission?.place_name || ''}
+        isDeleting={isDeleting}
+      />
+
       {/* Header Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -225,8 +484,15 @@ export default function SubmissionsPage() {
               Kelola semua submission yang masuk dari pengguna
             </p>
           </div>
-          
+
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push('/admin/submissions/create')}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Tambah Baru
+            </button>
             <button
               onClick={fetchSubmissions}
               className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
@@ -234,7 +500,10 @@ export default function SubmissionsPage() {
               <RefreshCw className="w-4 h-4" />
               Refresh
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+            <button
+              onClick={exportToCSV}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
               <Download className="w-4 h-4" />
               Export CSV
             </button>
@@ -245,7 +514,7 @@ export default function SubmissionsPage() {
       {/* Filters and Search Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col lg:flex-row gap-4">
-          
+
           {/* Search Bar */}
           <div className="flex-1">
             <div className="relative">
@@ -333,7 +602,7 @@ export default function SubmissionsPage() {
           )}
         </div>
 
-        {/* Stats */}
+        {/* Stats and Sort Options */}
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
           <div className="flex items-center gap-6 text-sm text-gray-600">
             <span className="flex items-center gap-1">
@@ -345,8 +614,7 @@ export default function SubmissionsPage() {
               Filtered: {filteredSubmissions.length} items
             </span>
           </div>
-          
-          {/* Sort Options */}
+
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">Sort by:</span>
             <select
@@ -399,7 +667,10 @@ export default function SubmissionsPage() {
                       <div className="flex-shrink-0 h-12 w-12">
                         {submission.thumbnail_picture ? (
                           <Image
-                            src={submission.thumbnail_picture}
+                            src={submission.thumbnail_picture.startsWith('http')
+                              ? submission.thumbnail_picture
+                              : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/uploads/${submission.thumbnail_picture}`
+                            }
                             alt={`Logo ${submission.place_name}`}
                             width={48}
                             height={48}
@@ -424,9 +695,9 @@ export default function SubmissionsPage() {
                         {submission.website && (
                           <div className="text-sm text-blue-600 flex items-center gap-1 hover:text-blue-800">
                             <Globe className="w-3 h-3" />
-                            <a 
+                            <a
                               href={submission.website.startsWith('http') ? submission.website : `https://${submission.website}`}
-                              target="_blank" 
+                              target="_blank"
                               rel="noopener noreferrer"
                               className="truncate max-w-xs"
                             >
@@ -484,21 +755,24 @@ export default function SubmissionsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end gap-2">
-                      <button 
-                        className="text-blue-600 hover:text-blue-900 p-1 rounded"
-                        title="View Details"
+                      <button
+                        onClick={() => handleViewSubmission(submission.id)}
+                        className="text-blue-600 hover:text-blue-900 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                        title="Lihat Detail"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button 
-                        className="text-green-600 hover:text-green-900 p-1 rounded"
+                      <button
+                        onClick={() => handleEditSubmission(submission.id)}
+                        className="text-green-600 hover:text-green-900 p-2 rounded-lg hover:bg-green-50 transition-colors"
                         title="Edit"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button 
-                        className="text-red-600 hover:text-red-900 p-1 rounded"
-                        title="Delete"
+                      <button
+                        onClick={() => handleDeleteClick(submission)}
+                        className="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                        title="Hapus"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -508,13 +782,13 @@ export default function SubmissionsPage() {
               ))}
             </tbody>
           </table>
-          
+
           {filteredSubmissions.length === 0 && !isLoading && (
             <div className="text-center py-12">
               <div className="text-gray-400 text-lg mb-2">Tidak ada data ditemukan</div>
               <p className="text-gray-500">
-                {submissions.length === 0 
-                  ? 'Belum ada submission yang masuk' 
+                {submissions.length === 0
+                  ? 'Belum ada submission yang masuk'
                   : 'Coba ubah filter atau kata kunci pencarian Anda'
                 }
               </p>
@@ -522,6 +796,24 @@ export default function SubmissionsPage() {
           )}
         </div>
       </div>
+
+      {/* Style untuk animasi */}
+      <style jsx>{`
+        @keyframes slide-in {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+
+        .animate-slide-in {
+          animation: slide-in 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }

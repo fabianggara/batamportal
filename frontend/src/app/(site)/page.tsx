@@ -1,6 +1,9 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation'; 
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -25,13 +28,50 @@ import {
   Sun,
   Moon
 } from 'lucide-react';
+interface RecommendationItem {
+  id: number;
+  name: string;
+  thumbnail_picture?: string;
+  address: string;
+  category?: string;
+  type: string; // 'hotel', 'wisata', dll.
+}
+
+interface HomepageData {
+  akomodasi: RecommendationItem[];
+  wisata: RecommendationItem[];
+  kuliner: RecommendationItem[];
+}
 
 const HomePage = () => {
+  const router = useRouter();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [activeCategory, setActiveCategory] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const [statsVisible, setStatsVisible] = useState(false);
   const [timeOfDay, setTimeOfDay] = useState<'morning' | 'afternoon' | 'evening'>('morning');
+  const [recommendations, setRecommendations] = useState<HomepageData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+
+  useEffect(() => {
+  const fetchHomepageData = async () => {
+    try {
+      // Panggil endpoint baru untuk data homepage yang dikelompokkan
+      const res = await fetch("http://localhost:5000/api/homepage-recommendations");
+      const json = await res.json();
+      if (json.success) {
+        setRecommendations(json.data);
+      }
+    } catch (err) {
+      console.error("Error fetching homepage data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchHomepageData();
+}, []);
 
   // Set time-based greeting
   useEffect(() => {
@@ -56,52 +96,52 @@ const HomePage = () => {
   ];
 
   // Enhanced recommendations with more realistic data
-  const recommendations = [
-    {
-      id: 1,
-      name: "Harris Hotel Batam Center",
-      description: "Hotel mewah dengan fasilitas lengkap di jantung kota Batam",
-      image: "/api/placeholder/300/200",
-      tag: "Hot Deal",
-      rating: 4.8,
-      price: "Rp 750.000",
-      location: "Batam Center",
-      category: "Akomodasi"
-    },
-    {
-      id: 2,
-      name: "Pantai Melur",
-      description: "Pantai indah dengan pasir putih dan air jernih yang memukau",
-      image: "/api/placeholder/300/200", 
-      tag: "Trending",
-      rating: 4.6,
-      visitors: "2.3k",
-      location: "Galang",
-      category: "Wisata"
-    },
-    {
-      id: 3,
-      name: "Rumah Makan Sederhana",
-      description: "Kuliner khas Batam dengan cita rasa autentik dan harga terjangkau",
-      image: "/api/placeholder/300/200",
-      tag: "Local Favorite", 
-      rating: 4.7,
-      price: "Rp 50.000",
-      location: "Nagoya",
-      category: "Kuliner"
-    },
-    {
-      id: 4,
-      name: "Batam Mini Golf",
-      description: "Arena mini golf outdoor dengan pemandangan kota yang menakjubkan",
-      image: "/api/placeholder/300/200",
-      tag: "Family Fun",
-      rating: 4.5,
-      visitors: "1.8k",
-      location: "Nagoya Hill",
-      category: "Hiburan"
-    }
-  ];
+  // const recommendations = [
+  //   {
+  //     id: 1,
+  //     name: "Harris Hotel Batam Center",
+  //     description: "Hotel mewah dengan fasilitas lengkap di jantung kota Batam",
+  //     image: "/api/placeholder/300/200",
+  //     tag: "Hot Deal",
+  //     rating: 4.8,
+  //     price: "Rp 750.000",
+  //     location: "Batam Center",
+  //     category: "Akomodasi"
+  //   },
+  //   {
+  //     id: 2,
+  //     name: "Pantai Melur",
+  //     description: "Pantai indah dengan pasir putih dan air jernih yang memukau",
+  //     image: "/api/placeholder/300/200", 
+  //     tag: "Trending",
+  //     rating: 4.6,
+  //     visitors: "2.3k",
+  //     location: "Galang",
+  //     category: "Wisata"
+  //   },
+  //   {
+  //     id: 3,
+  //     name: "Rumah Makan Sederhana",
+  //     description: "Kuliner khas Batam dengan cita rasa autentik dan harga terjangkau",
+  //     image: "/api/placeholder/300/200",
+  //     tag: "Local Favorite", 
+  //     rating: 4.7,
+  //     price: "Rp 50.000",
+  //     location: "Nagoya",
+  //     category: "Kuliner"
+  //   },
+  //   {
+  //     id: 4,
+  //     name: "Batam Mini Golf",
+  //     description: "Arena mini golf outdoor dengan pemandangan kota yang menakjubkan",
+  //     image: "/api/placeholder/300/200",
+  //     tag: "Family Fun",
+  //     rating: 4.5,
+  //     visitors: "1.8k",
+  //     location: "Nagoya Hill",
+  //     category: "Hiburan"
+  //   }
+  // ];
 
   // Dynamic slides with time-based content
   const slides = [
@@ -150,15 +190,16 @@ const HomePage = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const getTagColor = (tag: string) => {
-    switch (tag) {
-      case 'Hot Deal': return 'bg-red-500';
-      case 'Trending': return 'bg-blue-500';
-      case 'Local Favorite': return 'bg-green-500';
-      case 'Family Fun': return 'bg-purple-500';
-      default: return 'bg-orange-500';
-    }
-  };
+  // const getTagColor = (tag: string) => {
+  //   switch (tag) {
+  //     case 'Hot Deal': return 'bg-red-500';
+  //     case 'Trending': return 'bg-blue-500';
+  //     case 'Local Favorite': return 'bg-green-500';
+  //     case 'Family Fun': return 'bg-purple-500';
+  //     default: return 'bg-orange-500';
+  //   }
+  // };
+
 
   const getTimeIcon = () => {
     switch (timeOfDay) {
@@ -167,6 +208,20 @@ const HomePage = () => {
       case 'evening': return <Moon className="w-5 h-5 text-indigo-400" />;
     }
   };
+
+  const handleSearch = () => {
+  // Hanya jalankan jika ada isi pencarian
+  if (searchQuery.trim() !== '') {
+    // Arahkan ke halaman hasil pencarian dengan query
+    router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
+  }
+};
+
+const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      handleSearch();
+    }
+};
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -193,25 +248,32 @@ const HomePage = () => {
             </p>
           </div>
 
-          {/* Enhanced Search Bar */}
           <div className="relative max-w-2xl mx-auto">
-            <div className={`relative transition-all duration-300 ${searchFocused ? 'transform scale-105' : ''}`}>
-              <input
-                type="text"
-                placeholder="Cari hotel, restoran, wisata, atau layanan lainnya..."
-                onFocus={() => setSearchFocused(true)}
-                onBlur={() => setSearchFocused(false)}
-                className="w-full px-6 py-4 pr-20 text-lg border-2 border-gray-200 rounded-full focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 shadow-lg"
-              />
-              <div className="absolute right-2 top-2 flex gap-2">
-                <button className="p-2 text-gray-400 hover:text-blue-500 transition-colors">
-                  <Filter className="w-5 h-5" />
-                </button>
-                <button className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors">
-                  <Search className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
+    <div className={`relative transition-all duration-300 ${searchFocused ? 'transform scale-105' : ''}`}>
+      <input
+        type="text"
+        placeholder="Cari hotel, restoran, wisata, atau layanan lainnya..."
+        onFocus={() => setSearchFocused(true)}
+        onBlur={() => setSearchFocused(false)}
+        // === TAMBAHAN BARU: Hubungkan input dengan state ===
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        onKeyDown={handleKeyDown} // Menangani saat tombol Enter ditekan
+        className="w-full px-6 py-4 pr-20 text-lg border-2 border-gray-200 rounded-full focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 shadow-lg"
+      />
+      <div className="absolute right-2 top-2 flex gap-2">
+        <button className="p-2 text-gray-400 hover:text-blue-500 transition-colors">
+          <Filter className="w-5 h-5" />
+        </button>
+        <button 
+          // === TAMBAHAN BARU: Tambahkan event onClick ===
+          onClick={handleSearch}
+          className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors"
+        >
+          <Search className="w-5 h-5" />
+        </button>
+      </div>
+    </div>
             
             {/* Quick Search Suggestions */}
             <div className="flex flex-wrap gap-2 mt-4 justify-center">
@@ -297,85 +359,161 @@ const HomePage = () => {
           </div>
         </section>
 
+
         {/* Enhanced Recommendations Section */}
-        <section>
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800">Rekomendasi Terpopuler</h2>
-              <p className="text-gray-600">Pilihan terbaik berdasarkan review pengguna</p>
-            </div>
-            <div className="flex gap-2">
-              <button className="px-4 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors">
-                <TrendingUp className="w-4 h-4 inline mr-1" /> Trending
-              </button>
-              <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                <Clock className="w-4 h-4 inline mr-1" /> Terbaru
-              </button>
-            </div>
+      <section>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800">Rekomendasi Terpopuler</h2>
+            <p className="text-gray-600">Pilihan terbaik berdasarkan review pengguna</p>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {recommendations.map((item) => (
-              <div 
-                key={item.id} 
-                className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2"
-              >
-                <div className="relative overflow-hidden">
-                  <div className="bg-gradient-to-br from-gray-200 to-gray-300 h-48 flex items-center justify-center text-gray-500 relative">
-                    <Camera className="w-12 h-12" />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <Play className="w-8 h-8 text-white" />
+        </div>
+
+        {/* Tampilkan loading jika data belum siap */}
+        {loading && (
+          <p className="text-center text-gray-500">Loading data...</p>
+        )}
+
+        {/* Tampilkan rekomendasi setelah loading selesai dan data ada */}
+        {!loading && recommendations && (
+          <div className="space-y-12">
+            {/* --- REKOMENDASI AKOMODASI --- */}
+            {recommendations.akomodasi && recommendations.akomodasi.length > 0 && (
+              <div>
+                <h3 className="text-xl font-bold text-gray-700 mb-4">Akomodasi Pilihan</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {recommendations.akomodasi.map((item: RecommendationItem) => (
+                    // Ini adalah komponen kartu Anda
+                    <div key={`${item.type}-${item.id}`} className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
+                      <div className="relative overflow-hidden">
+                        {item.thumbnail_picture ? (
+                          <img
+                            src={`http://localhost:5000/uploads/${item.thumbnail_picture.trim()}`}
+                            alt={item.name}
+                            className="w-full h-48 object-cover"
+                          />
+                        ) : (
+                          <div className="bg-gradient-to-br from-gray-200 to-gray-300 h-48 flex items-center justify-center text-gray-500">
+                            <Camera className="w-12 h-12" />
+                          </div>
+                        )}
+                        <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
+                          {item.category}
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <h3 className="font-bold text-gray-800 group-hover:text-blue-600 transition-colors truncate">
+                          {item.name}
+                        </h3>
+                        <div className="flex items-center gap-1 text-sm text-gray-500 mt-2">
+                          <MapPin className="w-3 h-3" />
+                          <span className="truncate">{item.address}</span>
+                        </div>
+                        <button 
+                          className="w-full mt-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all"
+                          onClick={() => router.push(`/itemDetail/${item.type}/${item.id}`)}
+                        >
+                          Lihat Detail
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  
-                  {/* Tag Badge */}
-                  <div className={`absolute top-3 left-3 ${getTagColor(item.tag)} text-white text-xs px-2 py-1 rounded-full font-medium`}>
-                    {item.tag}
-                  </div>
-                  
-                  {/* Category Badge */}
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* --- REKOMENDASI WISATA (SUDAH DILENGKAPI) --- */}
+      {recommendations.wisata && recommendations.wisata.length > 0 && (
+        <div>
+          <h3 className="text-xl font-bold text-gray-700 mb-4">Destinasi Wisata Populer</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {recommendations.wisata.map((item: RecommendationItem) => (
+              // Kode kartu disalin-tempel ke sini
+              <div key={`${item.type}-${item.id}`} className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
+                <div className="relative overflow-hidden">
+                  {item.thumbnail_picture ? (
+                    <img
+                      src={`http://localhost:5000/uploads/${item.thumbnail_picture.trim()}`}
+                      alt={item.name}
+                      className="w-full h-48 object-cover"
+                    />
+                  ) : (
+                    <div className="bg-gradient-to-br from-gray-200 to-gray-300 h-48 flex items-center justify-center text-gray-500">
+                      <Camera className="w-12 h-12" />
+                    </div>
+                  )}
                   <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
                     {item.category}
                   </div>
                 </div>
-                
                 <div className="p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-bold text-gray-800 group-hover:text-blue-600 transition-colors">
-                      {item.name}
-                    </h3>
-                    <div className="flex items-center gap-1 text-yellow-500">
-                      <Star className="w-4 h-4 fill-current" />
-                      <span className="text-sm font-medium text-gray-700">{item.rating}</span>
-                    </div>
+                  <h3 className="font-bold text-gray-800 group-hover:text-blue-600 transition-colors truncate">
+                    {item.name}
+                  </h3>
+                  <div className="flex items-center gap-1 text-sm text-gray-500 mt-2">
+                    <MapPin className="w-3 h-3" />
+                    <span className="truncate">{item.address}</span>
                   </div>
-                  
-                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">{item.description}</p>
-                  
-                  <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
-                      {item.location}
-                    </div>
-                    {item.price && (
-                      <div className="font-semibold text-blue-600">{item.price}</div>
-                    )}
-                    {item.visitors && (
-                      <div className="flex items-center gap-1">
-                        <Eye className="w-3 h-3" />
-                        {item.visitors}
-                      </div>
-                    )}
-                  </div>
-                  
-                  <button className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform group-hover:scale-105">
+                  <button 
+                    className="w-full mt-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all"
+                    onClick={() => router.push(`/itemDetail/${item.type}/${item.id}`)}
+                  >
                     Lihat Detail
                   </button>
                 </div>
               </div>
             ))}
           </div>
-        </section>
+        </div>
+      )}
+            
+            {/* --- REKOMENDASI KULINER (SUDAH DILENGKAPI) --- */}
+      {recommendations.kuliner && recommendations.kuliner.length > 0 && (
+        <div>
+          <h3 className="text-xl font-bold text-gray-700 mb-4">Kuliner Pilihan</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {recommendations.kuliner.map((item: RecommendationItem) => (
+              <div key={`${item.type}-${item.id}`} className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
+                <div className="relative overflow-hidden">
+                  {item.thumbnail_picture ? (
+                    <img
+                      src={`http://localhost:5000/uploads/${item.thumbnail_picture.trim()}`}
+                      alt={item.name}
+                      className="w-full h-48 object-cover"
+                    />
+                  ) : (
+                    <div className="bg-gradient-to-br from-gray-200 to-gray-300 h-48 flex items-center justify-center text-gray-500">
+                      <Camera className="w-12 h-12" />
+                    </div>
+                  )}
+                  <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
+                    {item.category}
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h3 className="font-bold text-gray-800 group-hover:text-blue-600 transition-colors truncate">
+                    {item.name}
+                  </h3>
+                  <div className="flex items-center gap-1 text-sm text-gray-500 mt-2">
+                    <MapPin className="w-3 h-3" />
+                    <span className="truncate">{item.address}</span>
+                  </div>
+                  <button 
+                    className="w-full mt-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all"
+                    onClick={() => router.push(`/itemDetail/${item.type}/${item.id}`)}
+                  >
+                    Lihat Detail
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+        )}
+      </section>
+
 
         {/* Enhanced Carousel Section */}
         <section className="relative">

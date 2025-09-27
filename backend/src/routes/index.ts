@@ -1,24 +1,29 @@
-// src/routes/index.ts
 import { Router } from 'express';
 
-// 1. Impor semua file rute dari setiap fitur
+// Impor rute lain
 import authRoutes from './authRoutes';
-import passwordRoutes from './password'; // Mengimpor dari folder /password
-import submissionsRoutes from './submissionsRoutes'; // Asumsi Anda punya file ini
+import passwordRoutes from './password';
+import searchRoutes from './searchRoutes';
+import hotelRoutes from './kategori/hotel/route';
+import recommendationRoutes from './recommendationRoutes';
+import { getHomepageRecommendations } from '../controllers/homepageController';
+
+
+// --- PERBAIKI BARIS INI ---
+// Sebelumnya: import submissionsRoutes from './submissionsRoutes';
+// Seharusnya:
+import submissionsRoutes from './submissions/routes'; 
 
 const router = Router();
 
-// 2. Daftarkan setiap rute dengan awalan (prefix) yang sesuai
-// Contoh: Semua rute di authRoutes akan diakses melalui /auth/...
-// URL Final: /api/auth/login, /api/auth/me, dst.
+// ... (kode lainnya tidak perlu diubah) ...
 router.use('/auth', authRoutes);
-
-// URL Final: /api/password/forgot, /api/password/reset, dst.
 router.use('/password', passwordRoutes);
-
-// URL Final: /api/submissions/...
 router.use('/submissions', submissionsRoutes);
+router.use('/search', searchRoutes);
+router.use('/hotel', hotelRoutes);
+router.use('/recommendations', recommendationRoutes);
+router.get('/homepage-recommendations', getHomepageRecommendations);
 
 
-// 3. Ekspor router utama untuk digunakan oleh app.ts
 export default router;
