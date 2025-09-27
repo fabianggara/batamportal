@@ -13,7 +13,7 @@ import loginRouter from './routes/login/routes';
 import meRoutes from "./routes/auth/meRoutes";
 import forgotPassRoutes from './routes/password/forgot/routes';
 
-import submissionsRouter from './routes/submissions/routes';
+import businessesRouter from './routes/businesses/routes';
 
 dotenv.config();
 
@@ -56,7 +56,7 @@ app.use("/api/login", loginRouter);
 app.use("/api/auth/me", meRoutes);
 app.use("/api/password", forgotPassRoutes);
 
-app.use('/api/submissions', submissionsRouter);
+app.use('/api/businesses', businessesRouter);
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // 404 handler

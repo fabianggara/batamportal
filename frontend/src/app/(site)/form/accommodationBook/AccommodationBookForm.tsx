@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from "next/image";
+import { useRouter, useParams } from 'next/navigation';
 import {
     MapPin,
     Calendar,
@@ -14,6 +15,7 @@ import {
     MessageCircle,
     BedDouble,
     ArrowRight,
+    ArrowLeft,
     Clock,
     Shield,
     Wifi,
@@ -74,6 +76,7 @@ const steps = [
 ];
 
 const AccommodationBookForm = () => {
+    const router = useRouter();
     const [currentStep, setCurrentStep] = useState(1);
     const [timeLeft, setTimeLeft] = useState(19 * 60 + 41); // 19:41 in seconds
     
@@ -545,7 +548,12 @@ const AccommodationBookForm = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-
+            <button
+                onClick={() => router.back()}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                    <ArrowLeft className="w-5 h-5" />
+            </button>
             {renderStepIndicator()}
 
             <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -558,7 +566,7 @@ const AccommodationBookForm = () => {
 
                 {/* Sidebar */}
                 <div className="lg:col-span-1">
-                    <div className="sticky top-6 max-h-[calc(100vh-2rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 space-y-6 max-w">
+                    <div className="sticky top-6 max-h-[calc(100vh-2rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 space-y-6 max-w ">
                         {/* Hotel Info */}
                         <div 
                             className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl p-6 border border-gray-200 transform transition-all duration-300 hover:scale-[1.02]"

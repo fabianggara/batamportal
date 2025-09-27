@@ -1,4 +1,4 @@
-// src/app/admin/submissions/create/page.tsx
+// src/app/admin/create/akomodasi/page.tsx
 'use client';
 
 import React, { useState } from 'react';
@@ -136,7 +136,7 @@ export default function CreateSubmissionPage() {
   const handleCategorySelect = (category: Category) => {
     setSelectedCategory(category.slug);
     // Redirect ke form spesifik kategori
-    router.push(`/admin/submissions/create/${category.slug}`);
+    router.push(`/admin/businesses/create/${category.slug}`);
   };
 
   // Stats data
@@ -186,16 +186,6 @@ export default function CreateSubmissionPage() {
                 onClick={() => handleCategorySelect(category)}
                 className="relative group cursor-pointer transform transition-all duration-300 hover:scale-105 hover:-translate-y-2"
               >
-                {/* Trending Badge */}
-                {/* {category.trending && (
-                  <div className="absolute -top-2 -right-2 z-10">
-                    <div className="bg-red-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
-                      <TrendingUp className="w-3 h-3" />
-                      <span>HOT</span>
-                    </div>
-                  </div>
-                )} */}
-
                 {/* Card */}
                 <div className="bg-white rounded-2xl shadow-md group-hover:shadow-xl transition-all duration-300 overflow-hidden border-2 border-transparent group-hover:border-blue-200">
                   {/* Header with gradient */}

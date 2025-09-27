@@ -5,71 +5,103 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation'; 
 import Image from 'next/image';
 import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Building, 
-  Search, 
-  MapPin,
-  Utensils,
-  Camera,
-  Car,
-  Briefcase,
-  Heart,
-  Star,
-  Eye,
-  TrendingUp,
-  Clock,
-  Users,
-  Award,
-  Filter,
-  ArrowRight,
-  Play,
-  Zap,
-  Sun,
-  Moon
+  ChevronLeft, ChevronRight, Building, Search, MapPin, Utensils, Camera, Car, Briefcase, Heart, 
+  Star, Eye, TrendingUp, Clock, Users, Award, Filter, ArrowRight, Play, Zap, Sun, Moon 
 } from 'lucide-react';
 
-interface Submission {
-  id: number;
-  place_name: string;
-  thumbnail_picture?: string;
-  email?: string;
-  address: string;
-  category?: string;
-  subcategory?: string;
-  description?: string;
-  contact?: string;
-  website?: string;
-  created_at?: string;
-  updated_at?: string;
+// --- TIPE DATA DARI DATABASE ---
+interface Category {
+    id: number;
+    name: string;
+    slug: string;
+    icon: string; // Icon Lucide (string)
+    color_from: string; // Tailwind class
+    color_to: string;   // Tailwind class
+    count: number; // Jumlah bisnis (asumsi di-JOIN di backend)
+    is_featured: boolean;
 }
 
+interface Business {
+    id: number;
+    name: string; // Menggantikan place_name
+    thumbnail_image?: string; // Menggantikan thumbnail_picture
+    address: string;
+    description?: string;
+    
+    // Kolom dari View business_with_category
+    category_slug?: string; // Digunakan untuk routing
+    average_rating: number; // Dari tabel businesses
+    total_reviews: number; // Dari tabel businesses
+}
+
+// Map string icon name (dari DB) ke komponen Lucide React
+const iconMap: { [key: string]: React.ElementType } = {
+    Building: Building,
+    Utensils: Utensils,
+    MapPin: MapPin,
+    Camera: Camera,
+    Car: Car,
+    Briefcase: Briefcase,
+    Heart: Heart,
+    // Tambahkan mapping untuk semua icon yang ada di tabel categories Anda
+    // Contoh: Building2: Building, Briefcase: Briefcase, dll.
+};
+
+// --- KOMPONEN HOMEPAGE ---
 const HomePage = () => {
   const router = useRouter();
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [activeCategory, setActiveCategory] = useState<number | null>(null);
   const [searchFocused, setSearchFocused] = useState(false);
-  const [statsVisible, setStatsVisible] = useState(false);
   const [timeOfDay, setTimeOfDay] = useState<'morning' | 'afternoon' | 'evening'>('morning');
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  // Fetch submissions dari backend
+  // Data Dinamis
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [recommendations, setRecommendations] = useState<Business[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState([
+    { icon: Building, label: "Total Bisnis", value: 0, suffix: "+" },
+    { icon: Users, label: "Pengguna Aktif", value: 12500, suffix: "+" },
+    { icon: Star, label: "Rating Rata-rata", value: 4.8, suffix: "/5" },
+    { icon: Award, label: "Partner Terpercaya", value: 50, suffix: "+" }
+  ]);
+
+  // --- FETCH DATA DINAMIS DARI BACKEND ---
   useEffect(() => {
-    const fetchSubmissions = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/submissions");
-        const json = await res.json();
-        if (json.success) {
-          setSubmissions(json.data);
+        // Menggunakan URL absolut (pastikan environment variable terdefinisi)
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+        
+        // 1. Fetch Categories (untuk navigasi grid)
+        const categoriesRes = await fetch(`${apiUrl}/api/categories`); 
+        const categoriesJson = await categoriesRes.json();
+        if (categoriesJson.success && Array.isArray(categoriesJson.data)) {
+          setCategories(categoriesJson.data);
+        }
+
+        // 2. Fetch Recommendations (mengambil data bisnis yang featured)
+        // Endpoint baru: GET /api/businesses?is_featured=true&limit=8
+        const recsRes = await fetch(`${apiUrl}/api/businesses?is_featured=true&limit=8`); 
+        const recsJson = await recsRes.json();
+        if (recsJson.success && Array.isArray(recsJson.data)) {
+          setRecommendations(recsJson.data);
+          
+          // Update Total Bisnis di Stats
+          setStats(prev => prev.map(stat => {
+            if (stat.label === "Total Bisnis") {
+              // Asumsi backend memberikan total count di metadata atau dihitung manual
+              return { ...stat, value: recsJson.metadata?.totalCount || 375 };
+            }
+            return stat;
+          }));
         }
       } catch (err) {
-        console.error("Error fetching submissions:", err);
+        console.error("Error fetching homepage data:", err);
       } finally {
         setLoading(false);
       }
     };
-    fetchSubmissions();
+    fetchData();
   }, []);
 
   // Set time-based greeting
@@ -78,62 +110,7 @@ const HomePage = () => {
     if (hour < 12) setTimeOfDay('morning');
     else if (hour < 18) setTimeOfDay('afternoon');
     else setTimeOfDay('evening');
-    
-    const timer = setTimeout(() => setStatsVisible(true), 1000);
-    return () => clearTimeout(timer);
   }, []);
-
-  // Enhanced categories dengan routing yang konsisten
-  const categories = [
-    { 
-      icon: Building, 
-      label: "Akomodasi", 
-      color: "from-blue-500 to-blue-600", 
-      count: "120+",
-      link: "/kategori/akomodasi",
-      slug: "akomodasi"
-    },
-    { 
-      icon: Utensils, 
-      label: "Kuliner", 
-      color: "from-orange-500 to-red-500", 
-      count: "85+",
-      link: "/kategori/kuliner",
-      slug: "kuliner"
-    },
-    { 
-      icon: MapPin, 
-      label: "Wisata", 
-      color: "from-green-500 to-emerald-600", 
-      count: "67+",
-      link: "/kategori/wisata",
-      slug: "wisata"
-    },
-    { 
-      icon: Camera, 
-      label: "Hiburan", 
-      color: "from-purple-500 to-pink-500", 
-      count: "45+",
-      link: "/kategori/hiburan",
-      slug: "hiburan"
-    },
-    { 
-      icon: Car, 
-      label: "Transportasi", 
-      color: "from-indigo-500 to-blue-500", 
-      count: "30+",
-      link: "/kategori/transportasi",
-      slug: "transportasi"
-    },
-    { 
-      icon: Briefcase, 
-      label: "Bisnis", 
-      color: "from-gray-600 to-gray-700", 
-      count: "28+",
-      link: "/kategori/bisnis",
-      slug: "bisnis"
-    },
-  ];
 
   // Dynamic slides with time-based content
   const slides = [
@@ -141,33 +118,22 @@ const HomePage = () => {
       id: 1,
       title: timeOfDay === 'morning' ? "SELAMAT PAGI BATAM!" : timeOfDay === 'afternoon' ? "SELAMAT SIANG BATAM!" : "SELAMAT MALAM BATAM!",
       subtitle: "Temukan Pengalaman Tak Terlupakan",
-      image: "/api/placeholder/1200/400",
       cta: "Jelajahi Sekarang"
     },
     {
       id: 2,
       title: "KULINER TERBAIK",
       subtitle: "Nikmati Cita Rasa Khas Batam",
-      image: "/api/placeholder/1200/400",
       cta: "Coba Sekarang",
-      link: "/kategori/kuliner"
+      link: "/category/kuliner"
     },
     {
       id: 3,
       title: "DESTINASI WISATA",
       subtitle: "Keindahan Alam Yang Memukau",
-      image: "/api/placeholder/1200/400", 
       cta: "Kunjungi",
-      link: "/kategori/wisata"
+      link: "/category/wisata"
     }
-  ];
-
-  // Statistics counter
-  const stats = [
-    { icon: Building, label: "Total Bisnis", value: 375, suffix: "+" },
-    { icon: Users, label: "Pengguna Aktif", value: 12500, suffix: "+" },
-    { icon: Star, label: "Rating Rata-rata", value: 4.8, suffix: "/5" },
-    { icon: Award, label: "Partner Terpercaya", value: 50, suffix: "+" }
   ];
 
   const nextSlide = () => {
@@ -192,8 +158,21 @@ const HomePage = () => {
     }
   };
 
-  const handleCategoryClick = (index: number) => {
-    setActiveCategory(index);
+  // Update item navigation (menggunakan category_slug dari View)
+  const handleItemClick = (item: Business) => {
+      const categorySlug = item.category_slug || 'umum'; // Menggunakan category_slug
+      router.push(`/category/${categorySlug}/detail/${item.id}`);
+  };
+
+  // Helper untuk mendapatkan Icon dari string DB
+  const getStatIcon = (label: string) => {
+    switch (label) {
+      case "Total Bisnis": return Building;
+      case "Pengguna Aktif": return Users;
+      case "Rating Rata-rata": return Star;
+      case "Partner Terpercaya": return Award;
+      default: return Users;
+    }
   };
 
   return (
@@ -236,12 +215,13 @@ const HomePage = () => {
                 </button>
               </div>
             </div>
+            {/* Quick Suggestions */}
             <div className="flex flex-wrap gap-2 mt-4 justify-center">
               {[
-                { label: 'Hotel Murah', link: '/kategori/akomodasi' },
-                { label: 'Kuliner Khas', link: '/kategori/kuliner' },
-                { label: 'Pantai Indah', link: '/kategori/wisata' },
-                { label: 'Spa & Massage', link: '/kategori/hiburan' }
+                { label: 'Hotel Murah', link: '/category/akomodasi?tag=murah' },
+                { label: 'Kuliner Khas', link: '/category/kuliner?tag=lokal' },
+                { label: 'Pantai Indah', link: '/category/wisata?tag=pantai' },
+                { label: 'Spa & Massage', link: '/category/hiburan?tag=spa' }
               ].map((suggestion, index) => (
                 <Link 
                   key={index}
@@ -258,7 +238,7 @@ const HomePage = () => {
 
       <div className="max-w-6xl mx-auto p-4 space-y-12">
         
-        {/* Enhanced Categories Section */}
+        {/* Enhanced Categories Section (DYNAMIC) */}
         <section>
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -274,54 +254,41 @@ const HomePage = () => {
             </Link>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {categories.map((category, index) => {
-              const Icon = category.icon;
-              return (
-                <Link
-                  key={index}
-                  href={category.link}
-                  onClick={() => handleCategoryClick(index)}
-                  className={`group relative overflow-hidden rounded-2xl p-6 cursor-pointer transition-all duration-300 transform hover:scale-105 hover:shadow-xl ${
-                    activeCategory === index 
-                      ? 'shadow-2xl ring-2 ring-blue-500 ring-offset-2' 
-                      : 'shadow-lg hover:shadow-xl'
-                  }`}
-                >
-                  {/* Background Gradient */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-90 group-hover:opacity-100 transition-all duration-300`}></div>
-                  
-                  {/* Decorative Elements */}
-                  <div className="absolute -top-4 -right-4 w-8 h-8 bg-white bg-opacity-20 rounded-full"></div>
-                  <div className="absolute -bottom-2 -left-2 w-6 h-6 bg-white bg-opacity-10 rounded-full"></div>
-                  
-                  {/* Content */}
-                  <div className="relative z-10 text-center text-white">
-                    <div className="mb-4">
-                      <Icon className="w-8 h-8 mx-auto mb-3 group-hover:scale-110 transition-transform duration-300" />
+          {categories.length === 0 ? (
+            <div className="text-center py-10 text-gray-500">Memuat kategori...</div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {categories.filter(cat => cat.is_featured).map((category) => {
+                const Icon = iconMap[category.icon] || Building;
+                return (
+                  <Link
+                    key={category.id}
+                    href={`/category/${category.slug}`}
+                    className={`group relative overflow-hidden rounded-2xl p-6 cursor-pointer transition-all duration-300 transform hover:scale-105 hover:shadow-xl shadow-lg hover:shadow-xl`}
+                  >
+                    {/* Background Gradient dari DB */}
+                    <div className={`absolute inset-0 bg-gradient-to-br from-${category.color_from} to-${category.color_to} opacity-90 group-hover:opacity-100 transition-all duration-300`}></div>
+                    
+                    {/* Content */}
+                    <div className="relative z-10 text-center text-white">
+                      <div className="mb-4">
+                        <Icon className="w-8 h-8 mx-auto mb-3 group-hover:scale-110 transition-transform duration-300" />
+                      </div>
+                      <h3 className="font-semibold text-sm mb-1 group-hover:text-white transition-colors">
+                        {category.name}
+                      </h3>
+                      <p className="text-xs opacity-90 group-hover:opacity-100 transition-opacity">
+                        {category.count}+ tempat
+                      </p>
                     </div>
-                    <h3 className="font-semibold text-sm mb-1 group-hover:text-white transition-colors">
-                      {category.label}
-                    </h3>
-                    <p className="text-xs opacity-90 group-hover:opacity-100 transition-opacity">
-                      {category.count} tempat
-                    </p>
-                  </div>
-                  
-                  {/* Sparkle Effect */}
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <Zap className="w-3 h-3 text-yellow-300 animate-pulse" />
-                  </div>
-                  
-                  {/* Hover Shine Effect */}
-                  <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-300 transform -skew-x-12 -translate-x-full group-hover:translate-x-full"></div>
-                </Link>
-              );
-            })}
-          </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </section>
 
-        {/* Stats Section */}
+        {/* Stats Section (DYNAMIC COUNT) */}
         <section className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold mb-2">Dipercaya Ribuan Pengguna</h2>
@@ -329,7 +296,7 @@ const HomePage = () => {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {stats.map((stat, index) => {
-              const Icon = stat.icon;
+              const Icon = getStatIcon(stat.label);
               return (
                 <div 
                   key={index} 
@@ -338,7 +305,7 @@ const HomePage = () => {
                   <div className="bg-white/20 rounded-full p-3 w-fit mx-auto mb-3">
                     <Icon className="w-6 h-6" />
                   </div>
-                  <div className={`text-2xl font-bold mb-1 ${statsVisible ? 'animate-bounce' : ''}`}>
+                  <div className={`text-2xl font-bold mb-1`}>
                     {stat.value.toLocaleString()}{stat.suffix}
                   </div>
                   <div className="text-sm opacity-90">{stat.label}</div>
@@ -348,12 +315,12 @@ const HomePage = () => {
           </div>
         </section>
 
-        {/* Enhanced Recommendations Section */}
+        {/* Enhanced Recommendations Section (DYNAMIC BUSINESSES) */}
         <section>
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="text-3xl font-bold text-gray-800 mb-2">Rekomendasi Terpopuler</h2>
-              <p className="text-gray-600">Pilihan terbaik berdasarkan review pengguna</p>
+              <p className="text-gray-600">Pilihan terbaik berdasarkan rating dan review pengguna</p>
             </div>
           </div>
           
@@ -364,21 +331,21 @@ const HomePage = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {submissions.slice(0, 8).map((item) => (
+              {recommendations.slice(0, 8).map((item) => (
                 <div 
                   key={item.id} 
                   className="group bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 cursor-pointer"
-                  onClick={() => router.push(`/submissions/preview/${item.id}`)}
+                  onClick={() => handleItemClick(item)}
                 >
                   <div className="relative overflow-hidden">
-                    {item.thumbnail_picture ? (
+                    {item.thumbnail_image ? (
                       <Image
                         src={
-                          item.thumbnail_picture.startsWith("http")
-                            ? item.thumbnail_picture
-                            : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/uploads/${item.thumbnail_picture}`
+                          item.thumbnail_image.startsWith("http")
+                            ? item.thumbnail_image
+                            : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/uploads/${item.thumbnail_image}`
                         }
-                        alt={item.place_name}
+                        alt={item.name}
                         width={500}
                         height={200}
                         className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
@@ -389,7 +356,16 @@ const HomePage = () => {
                       </div>
                     )}
                     <div className="absolute top-3 right-3 bg-black/50 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full">
-                      {item.category}
+                      {/* Menampilkan Rating */}
+                      <div className='flex items-center gap-1'>
+                        <Star className='w-3 h-3 text-yellow-400' fill='currentColor' />
+                        {
+                            item.average_rating 
+                                ? parseFloat(item.average_rating).toFixed(1)
+                                : 'N/A'
+                        } 
+                        ({item.total_reviews || 0})
+                      </div>
                     </div>
                     <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </div>
@@ -397,7 +373,7 @@ const HomePage = () => {
                   <div className="p-5">
                     <div className="flex items-start justify-between mb-2">
                       <h3 className="font-bold text-gray-800 group-hover:text-blue-600 transition-colors line-clamp-1">
-                        {item.place_name}
+                        {item.name}
                       </h3>
                     </div>
                     
@@ -415,8 +391,8 @@ const HomePage = () => {
                     <button 
                       className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2.5 rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform group-hover:scale-105 font-medium"
                       onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/category/[categoriesName]/detail/${item.id}`);
+                          e.stopPropagation();
+                          handleItemClick(item);
                       }}
                     >
                       Lihat Detail
@@ -428,10 +404,10 @@ const HomePage = () => {
           )}
 
           {/* View More Button */}
-          {submissions.length > 8 && (
+          {recommendations.length > 0 && (
             <div className="text-center mt-8">
               <Link
-                href="/kategori"
+                href="/category"
                 className="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 font-medium group"
               >
                 Lihat Semua Rekomendasi
@@ -448,13 +424,11 @@ const HomePage = () => {
               className="flex transition-transform duration-700 ease-in-out"
               style={{ transform: `translateX(-${currentSlide * 100}%)` }}
             >
-              {slides.map((slide, index) => (
+              {slides.map((slide) => (
                 <div key={slide.id} className="w-full flex-shrink-0 relative">
                   <div className="h-80 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 flex items-center justify-center relative overflow-hidden">
                     <div className="absolute inset-0 opacity-20">
                       <div className="absolute top-10 left-10 w-32 h-32 bg-white rounded-full animate-ping"></div>
-                      <div className="absolute bottom-20 right-20 w-24 h-24 bg-white rounded-full animate-pulse delay-1000"></div>
-                      <div className="absolute top-1/2 left-1/3 w-16 h-16 bg-white rounded-full animate-bounce delay-500"></div>
                     </div>
                     <div className="relative z-10 text-center text-white max-w-4xl px-8">
                       <h2 className="text-4xl md:text-6xl font-bold mb-4 animate-fade-in">
@@ -464,7 +438,7 @@ const HomePage = () => {
                         {slide.subtitle}
                       </p>
                       <Link 
-                        href={slide.link || '/kategori'}
+                        href={slide.link || '/category'}
                         className="inline-block bg-white text-blue-600 px-8 py-3 rounded-full font-semibold hover:bg-gray-100 transition-colors transform hover:scale-105"
                       >
                         {slide.cta}

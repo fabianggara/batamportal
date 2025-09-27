@@ -1,4 +1,4 @@
-// app/category/page.tsx
+// frontend/src/app/(site)/category/page.tsx
 
 'use client'
 
@@ -61,7 +61,7 @@ const allCategories = [
     count: "45+",
     link: "/category/hiburan",
     slug: "hiburan",
-    featured: false,
+    featured: true,
     subcategories: ["Bioskop", "Karaoke", "Game Center", "Klub Malam"]
   },
   {
@@ -72,7 +72,7 @@ const allCategories = [
     count: "30+",
     link: "/category/transportasi",
     slug: "transportasi",
-    featured: false,
+    featured: true,
     subcategories: ["Rental Mobil", "Ojek Online", "Bus", "Ferry"]
   },
   {
@@ -83,7 +83,7 @@ const allCategories = [
     count: "28+",
     link: "/category/bisnis",
     slug: "bisnis",
-    featured: false,
+    featured: true,
     subcategories: ["Coworking", "Meeting Room", "Office Space", "Business Center"]
   },
 ];
@@ -101,7 +101,7 @@ export default function AllCategoriesPage() {
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex items-center gap-4 mb-4">
             <button 
-              onClick={() => router.back()}
+              onClick={() => router.push(`/`)}
               className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -205,7 +205,7 @@ export default function AllCategoriesPage() {
         </section>
 
         {/* Other Categories */}
-        <section>
+        {/* <section>
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-800 mb-4">Kategori Lainnya</h2>
             <p className="text-gray-600">Eksplorasi lebih banyak pilihan menarik</p>
@@ -247,7 +247,7 @@ export default function AllCategoriesPage() {
               );
             })}
           </div>
-        </section>
+        </section> */}
 
         {/* Statistics */}
         <section className="bg-white rounded-3xl p-8 shadow-lg">
