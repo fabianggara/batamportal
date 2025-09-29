@@ -10,7 +10,12 @@ const nextConfig: NextConfig = {
         port: '5000',
         pathname: '/uploads/**',
       },
-      // === TAMBAHKAN OBJEK BARU DI SINI ===
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        port: '',
+        pathname: '/**',
+      },
       {
         protocol: 'https',
         hostname: 'picsum.photos',

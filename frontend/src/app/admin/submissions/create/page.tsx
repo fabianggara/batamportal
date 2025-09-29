@@ -1,824 +1,312 @@
+// src/app/admin/submissions/create/page.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter, useParams } from "next/navigation";
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Building2, 
   MapPin, 
-  Phone, 
-  Globe, 
-  Upload, 
-  FileText, 
-  Mail,
-  User,
-  CheckCircle,
-  AlertCircle,
-  Loader2,
+  Utensils, 
+  Camera, 
+  Car, 
+  Heart, 
+  GraduationCap, 
+  ShoppingBag,
+  ArrowRight,
   ArrowLeft,
-  X,
-  ChevronDown,
-  Image as ImageIcon,
-  Video as VideoIcon // Menambahkan ikon video
+  ChevronRight,
+  Users,
+  Star,
+  TrendingUp
 } from 'lucide-react';
 
-// Types matching our database structure
+// Types untuk kategori
 type Category = {
-  id: number;
-  nama: string;
+  id: string;
+  name: string;
   slug: string;
+  icon: React.ElementType;
   color: string;
-  icon: string;
+  gradient: string;
+  description: string;
+  features: string[];
+  count: number;
+  trending?: boolean;
 };
 
-type Subcategory = {
-  id: number;
-  kategori_id: number;
-  nama: string;
-  slug: string;
-};
-
-// 👇 Tambahkan tipe untuk file media
-type SubmissionMedia = {
-  file: File;
-  type: 'photo' | 'video';
-  preview: string; // URL untuk pratinjau
-};
-
-export default function ModernSubmissionForm() {
+export default function CreateSubmissionPage() {
   const router = useRouter();
-  // Form state matching database fields
-  const [formData, setFormData] = useState({
-    nama: '',
-    alamat: '',
-    kategori: '', // Menggunakan slug kategori
-    subkategori: '', // Menggunakan slug subkategori
-    kontak: '',
-    website: '',
-    email: '',
-    deskripsi: '',
-    logo: null as File | null,
-  });
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  // 👇 State baru untuk menampung media lainnya
-  const [submissionMedia, setSubmissionMedia] = useState<SubmissionMedia[]>([]);
-
-  // UI states
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [statusMessage, setStatusMessage] = useState('');
-  
-  // Data states - these would come from API in real app
-  const [categories, setCategories] = useState<Category[]>([
-    { id: 1, nama: 'Akomodasi', slug: 'akomodasi', color: '#3B82F6', icon: 'building' },
-    { id: 2, nama: 'Wisata', slug: 'wisata', color: '#10B981', icon: 'map-pin' },
-    { id: 3, nama: 'Kuliner', slug: 'kuliner', color: '#F59E0B', icon: 'utensils' },
-    { id: 4, nama: 'Hiburan', slug: 'hiburan', color: '#8B5CF6', icon: 'music' },
-    { id: 5, nama: 'Transportasi', slug: 'transportasi', color: '#EF4444', icon: 'car' },
-    { id: 6, nama: 'Kesehatan', slug: 'kesehatan', color: '#06B6D4', icon: 'heart' },
-    { id: 7, nama: 'Pendidikan', slug: 'pendidikan', color: '#84CC16', icon: 'book' },
-    { id: 8, nama: 'Belanja', slug: 'belanja', color: '#F97316', icon: 'shopping-bag' }
-  ]);
-  
-  const [subcategories, setSubcategories] = useState<Subcategory[]>([
-    // Akomodasi
-    { id: 1, kategori_id: 1, nama: 'Hotel Bintang 5', slug: 'hotel-bintang-5' },
-    { id: 2, kategori_id: 1, nama: 'Hotel Bintang 4', slug: 'hotel-bintang-4' },
-    { id: 3, kategori_id: 1, nama: 'Hotel Bintang 3', slug: 'hotel-bintang-3' },
-    { id: 4, kategori_id: 1, nama: 'Guest House', slug: 'guest-house' },
-    { id: 5, kategori_id: 1, nama: 'Homestay', slug: 'homestay' },
-    { id: 6, kategori_id: 1, nama: 'Villa', slug: 'villa' },
-    
-    // Wisata  
-    { id: 7, kategori_id: 2, nama: 'Pantai', slug: 'pantai' },
-    { id: 8, kategori_id: 2, nama: 'Gunung', slug: 'gunung' },
-    { id: 9, kategori_id: 2, nama: 'Taman', slug: 'taman' },
-    { id: 10, kategori_id: 2, nama: 'Museum', slug: 'museum' },
-    { id: 11, kategori_id: 2, nama: 'Tempat Bersejarah', slug: 'tempat-bersejarah' },
-    { id: 12, kategori_id: 2, nama: 'Wisata Religi', slug: 'wisata-religi' },
-    
-    // Kuliner
-    { id: 13, kategori_id: 3, nama: 'Restoran Tradisional', slug: 'restoran-tradisional' },
-    { id: 14, kategori_id: 3, nama: 'Restoran Modern', slug: 'restoran-modern' },
-    { id: 15, kategori_id: 3, nama: 'Kafe', slug: 'kafe' },
-    { id: 16, kategori_id: 3, nama: 'Street Food', slug: 'street-food' },
-    { id: 17, kategori_id: 3, nama: 'Bakery', slug: 'bakery' },
-    
-    // Hiburan
-    { id: 18, kategori_id: 4, nama: 'Karaoke', slug: 'karaoke' },
-    { id: 19, kategori_id: 4, nama: 'Cinema', slug: 'cinema' },
-    { id: 20, kategori_id: 4, nama: 'Pub & Bar', slug: 'pub-bar' },
-    { id: 21, kategori_id: 4, nama: 'Olahraga & Rekreasi', slug: 'olahraga-rekreasi' },
-    { id: 22, kategori_id: 4, nama: 'Spa & Massage', slug: 'spa-massage' },
-
-    // Transportasi
-    { id: 23, kategori_id: 5, nama: 'Taksi', slug: 'taksi' },
-    { id: 24, kategori_id: 5, nama: 'Bus Umum', slug: 'bus-umum' },
-    { id: 25, kategori_id: 5, nama: 'Travel & Shuttle', slug: 'travel-shuttle' },
-    { id: 26, kategori_id: 5, nama: 'Penyewaan Mobil', slug: 'rental-mobil' },
-    { id: 27, kategori_id: 5, nama: 'Penyewaan Motor', slug: 'rental-motor' },
-    { id: 28, kategori_id: 5, nama: 'Pelabuhan & Ferry', slug: 'pelabuhan-ferry' },
-    { id: 29, kategori_id: 5, nama: 'Bandara', slug: 'bandara' },
-
-    // Kesehatan
-    { id: 30, kategori_id: 6, nama: 'Rumah Sakit', slug: 'rumah-sakit' },
-    { id: 31, kategori_id: 6, nama: 'Klinik', slug: 'klinik' },
-    { id: 32, kategori_id: 6, nama: 'Apotek', slug: 'apotek' },
-    { id: 33, kategori_id: 6, nama: 'Laboratorium Medis', slug: 'laboratorium-medis' },
-    { id: 34, kategori_id: 6, nama: 'Puskesmas', slug: 'puskesmas' },
-    { id: 35, kategori_id: 6, nama: 'Dokter Praktek', slug: 'dokter-praktek' },
-
-    // Pendidikan
-    { id: 36, kategori_id: 7, nama: 'Sekolah Dasar', slug: 'sekolah-dasar' },
-    { id: 37, kategori_id: 7, nama: 'Sekolah Menengah', slug: 'sekolah-menengah' },
-    { id: 38, kategori_id: 7, nama: 'Perguruan Tinggi', slug: 'perguruan-tinggi' },
-    { id: 39, kategori_id: 7, nama: 'Lembaga Kursus', slug: 'lembaga-kursus' },
-    { id: 40, kategori_id: 7, nama: 'Bimbingan Belajar', slug: 'bimbingan-belajar' },
-    { id: 41, kategori_id: 7, nama: 'Pesantren', slug: 'pesantren' },
-    
-    // Belanja
-    { id: 42, kategori_id: 8, nama: 'Mall', slug: 'mall' },
-    { id: 43, kategori_id: 8, nama: 'Pasar Tradisional', slug: 'pasar-tradisional' },
-    { id: 44, kategori_id: 8, nama: 'Minimarket', slug: 'minimarket' },
-    { id: 45, kategori_id: 8, nama: 'Supermarket', slug: 'supermarket' },
-    { id: 46, kategori_id: 8, nama: 'Toko Pakaian', slug: 'toko-pakaian' },
-    { id: 47, kategori_id: 8, nama: 'Toko Elektronik', slug: 'toko-elektronik' },
-    { id: 48, kategori_id: 8, nama: 'Toko Buku', slug: 'toko-buku' }
-  ]);
-
-  // Cari kategori yang dipilih berdasarkan slug di formData
-  const selectedCategory = categories.find(cat => cat.slug === formData.kategori);
-  
-  // Filter subkategori berdasarkan ID dari kategori yang dipilih
-  const filteredSubcategories = subcategories.filter(
-    sub => selectedCategory ? sub.kategori_id === selectedCategory.id : false
-  );
-
-  // Handle input changes
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    
-    // Clear specific error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
+  // Kategori yang tersedia
+  const categories: Category[] = [
+    {
+      id: '1',
+      name: 'Akomodasi',
+      slug: 'akomodasi',
+      icon: Building2,
+      color: '#3B82F6',
+      gradient: 'from-blue-500 to-blue-600',
+      description: 'Hotel, Villa, Homestay, Guest House',
+      features: ['Galeri foto', 'Tipe kamar', 'Fasilitas', 'Lokasi GPS'],
+      count: 156,
+      trending: true
+    },
+    {
+      id: '2', 
+      name: 'Wisata',
+      slug: 'wisata',
+      icon: MapPin,
+      color: '#10B981',
+      gradient: 'from-green-500 to-emerald-600',
+      description: 'Pantai, Taman, Museum, Tempat Bersejarah',
+      features: ['Jam operasional', 'Tiket masuk', 'Fasilitas', 'Galeri'],
+      count: 89,
+      trending: true
+    },
+    {
+      id: '3',
+      name: 'Kuliner', 
+      slug: 'kuliner',
+      icon: Utensils,
+      color: '#F59E0B',
+      gradient: 'from-orange-500 to-red-500',
+      description: 'Restoran, Kafe, Warung, Street Food',
+      features: ['Menu makanan', 'Harga', 'Jam buka', 'Delivery'],
+      count: 234
+    },
+    {
+      id: '4',
+      name: 'Hiburan',
+      slug: 'hiburan', 
+      icon: Camera,
+      color: '#8B5CF6',
+      gradient: 'from-purple-500 to-pink-500',
+      description: 'Karaoke, Bioskop, Club, Arcade, Event',
+      features: ['Jam operasional', 'Harga tiket', 'Fasilitas', 'Event'],
+      count: 67
+    },
+    {
+      id: '5',
+      name: 'Transportasi',
+      slug: 'transportasi',
+      icon: Car, 
+      color: '#EF4444',
+      gradient: 'from-red-500 to-pink-500',
+      description: 'Taksi, Travel, Rental, Ferry',
+      features: ['Tarif', 'Rute', 'Jadwal', 'Kontak driver'],
+      count: 45
+    },
+    {
+      id: '6',
+      name: 'Kesehatan',
+      slug: 'kesehatan',
+      icon: Heart,
+      color: '#06B6D4', 
+      gradient: 'from-cyan-500 to-blue-500',
+      description: 'Rumah Sakit, Klinik, Apotek',
+      features: ['Dokter', 'Jadwal praktek', 'Fasilitas', 'BPJS'],
+      count: 78
+    },
+    {
+      id: '7',
+      name: 'Pendidikan',
+      slug: 'pendidikan',
+      icon: GraduationCap,
+      color: '#84CC16',
+      gradient: 'from-lime-500 to-green-500', 
+      description: 'Sekolah, Universitas, Kursus',
+      features: ['Program studi', 'Biaya', 'Fasilitas', 'Akreditasi'],
+      count: 123
+    },
+    {
+      id: '8',
+      name: 'Belanja',
+      slug: 'belanja',
+      icon: ShoppingBag,
+      color: '#F97316',
+      gradient: 'from-orange-500 to-amber-500',
+      description: 'Mall, Toko, Pasar, Supermarket', 
+      features: ['Produk', 'Harga', 'Jam buka', 'Promo'],
+      count: 189
     }
-    
-    // Reset subcategory when category changes
-    if (field === 'kategori' && value !== formData.kategori) {
-      setFormData(prev => ({ ...prev, subkategori: '' }));
-    }
+  ];
+
+  // Handle category selection
+  const handleCategorySelect = (category: Category) => {
+    setSelectedCategory(category.slug);
+    // Redirect ke form spesifik kategori
+    router.push(`/admin/submissions/create/${category.slug}`);
   };
 
-  // Handle logo file upload
-  const handleLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file size (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setErrors(prev => ({ ...prev, logo: "Ukuran file tidak boleh melebihi 5MB" }));
-      return;
-    }
-
-    // Validate file type
-    if (!file.type.match(/^image\/(jpeg|jpg|png|webp)$/)) {
-      setErrors(prev => ({ ...prev, logo: "Format file harus JPG, PNG, atau WebP" }));
-      return;
-    }
-
-    // Simpan ke formData biar konsisten
-    setFormData(prev => ({
-      ...prev,
-      logo: file,
-    }));
-
-    setErrors(prev => ({ ...prev, logo: "" }));
-
-    // Buat preview
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setLogoPreview(e.target?.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-
-  // 👇 Handler untuk unggahan media tambahan
-  const handleMediaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
-    const newMedia: SubmissionMedia[] = [];
-    const fileErrors: string[] = [];
-
-    // Validasi setiap file
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const mimeType = file.type;
-      
-      // Batasi ukuran per file (misal: 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        fileErrors.push(`Ukuran file "${file.name}" tidak boleh melebihi 10MB.`);
-        continue;
-      }
-
-      // Tentukan tipe media
-      let mediaType: 'photo' | 'video';
-      if (mimeType.startsWith('image/')) {
-        mediaType = 'photo';
-      } else if (mimeType.startsWith('video/')) {
-        mediaType = 'video';
-      } else {
-        fileErrors.push(`Format file "${file.name}" tidak didukung. Mohon gunakan format gambar atau video.`);
-        continue;
-      }
-      
-      // Buat URL pratinjau sementara
-      const previewUrl = URL.createObjectURL(file);
-      newMedia.push({ file, type: mediaType, preview: previewUrl });
-    }
-
-    if (fileErrors.length > 0) {
-      setErrors(prev => ({ ...prev, media: fileErrors.join(' ') }));
-      return;
-    }
-
-    // Tambahkan file-file baru ke state
-    setSubmissionMedia(prev => [...prev, ...newMedia]);
-    setErrors(prev => ({ ...prev, media: "" }));
-  };
-
-  // 👇 Hapus media
-  const removeMedia = (index: number) => {
-    const newMedia = submissionMedia.filter((_, i) => i !== index);
-    setSubmissionMedia(newMedia);
-  };
-
-
-  // Remove logo
-  const removeLogo = () => {
-    setFormData(prev => ({ ...prev, logo: null }));
-    setLogoPreview(null);
-    setErrors(prev => ({ ...prev, logo: '' }));
-  };
-
-
-  // Form validation
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.nama.trim()) newErrors.nama = 'Nama tempat wajib diisi';
-    if (!formData.alamat.trim()) newErrors.alamat = 'Alamat wajib diisi';
-    if (!formData.kategori) newErrors.kategori = 'Kategori wajib dipilih';
-    if (!formData.subkategori) newErrors.subkategori = 'Subkategori wajib dipilih';
-    if (!formData.kontak.trim()) newErrors.kontak = 'Kontak wajib diisi';
-    
-    // Email validation if provided
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Format email tidak valid';
-    }
-
-    // Website validation if provided
-    if (formData.website && !formData.website.match(/^https?:\/\/.+/)) {
-      newErrors.website = 'Website harus dimulai dengan http:// atau https://';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  // Handle form submission
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-
-    if (!validateForm()) {
-      setStatusMessage("Mohon periksa kembali form Anda");
-      setSubmitStatus("error");
-      return;
-    }
-
-    setIsLoading(true);
-    setSubmitStatus("idle");
-    setStatusMessage("Mengirim data...");
-
-    const submitData = new FormData();
-
-    // Loop data form biasa dan tambahkan ke FormData
-    Object.entries(formData).forEach(([key, value]) => {
-      if (value !== null) {
-        // 👇 mapping 'logo' ke 'thumbnail_picture'
-        const fieldName = key === "logo" ? "thumbnail_picture" : key;
-        submitData.append(
-          fieldName,
-          value instanceof File ? value : String(value)
-        );
-      }
-    });
-
-    // 👇 Perbaikan: Hapus '[]' dari nama field. Multer akan mengumpulkannya secara otomatis
-    submissionMedia.forEach((media) => {
-      submitData.append('media_files', media.file);
-    });
-
-
-    try {
-      const response = await fetch("http://localhost:5000/api/submissions", {
-        method: "POST",
-        body: submitData,
-        // 👇 Penting: Jangan atur Content-Type secara manual. 
-        // Browser akan mengaturnya secara otomatis (termasuk boundary) saat menggunakan FormData.
-        // headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        setSubmitStatus("success");
-        setStatusMessage("Formulir berhasil dikirim!");
-        // Reset form
-        setFormData({
-          nama: "",
-          alamat: "",
-          kategori: "",
-          subkategori: "",
-          kontak: "",
-          website: "",
-          email: "",
-          deskripsi: "",
-          logo: null, 
-        });
-        setLogoPreview(null);
-        setSubmissionMedia([]); // 👇 Reset media
-      } else {
-        setSubmitStatus("error");
-        setStatusMessage(
-          result.message || "Gagal mengirim formulir. Silakan coba lagi."
-        );
-      }
-    } catch (error) {
-      console.error("Submit error:", error);
-      setSubmitStatus("error");
-      setStatusMessage("Terjadi kesalahan koneksi. Silakan coba lagi.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Stats data
+  const totalBusinesses = categories.reduce((sum, cat) => sum + cat.count, 0);
+  const trendingCategories = categories.filter(cat => cat.trending);
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="max-w-2xl mx-auto">
-          <div className="flex items-center justify-center gap-4 mb-8">
+        <div className="max-w-6xl flex items-center">
+          <div className='gap-3'>
             <button
               onClick={() => router.back()}
-              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-6 h-6 text-gray-600" />
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+              <ArrowLeft className="w-5 h-5" />
             </button>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Daftarkan Bisnis Anda
-              </h1>
-              <p className="text-lg text-gray-600">
-                Bergabunglah dengan BatamPortal dan jangkau lebih banyak pelanggan
+          </div>
+          <div className='text-center mb-12 ms-40'>
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">
+              Daftarkan Bisnis Anda
+            </h1>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
+              Pilih kategori bisnis yang sesuai untuk mendapatkan form pendaftaran yang optimal
+            </p>
+            {/* Stats */}
+            <div className="flex items-center justify-center gap-8 text-sm text-gray-500">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                <span>{totalBusinesses.toLocaleString()} bisnis terdaftar</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" />
+                <span>{trendingCategories.length} kategori trending</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Category Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+          {categories.map((category) => {
+            const Icon = category.icon;
+            return (
+              <div
+                key={category.id}
+                onClick={() => handleCategorySelect(category)}
+                className="relative group cursor-pointer transform transition-all duration-300 hover:scale-105 hover:-translate-y-2"
+              >
+                {/* Trending Badge */}
+                {/* {category.trending && (
+                  <div className="absolute -top-2 -right-2 z-10">
+                    <div className="bg-red-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                      <TrendingUp className="w-3 h-3" />
+                      <span>HOT</span>
+                    </div>
+                  </div>
+                )} */}
+
+                {/* Card */}
+                <div className="bg-white rounded-2xl shadow-md group-hover:shadow-xl transition-all duration-300 overflow-hidden border-2 border-transparent group-hover:border-blue-200">
+                  {/* Header with gradient */}
+                  <div className={`bg-gradient-to-br ${category.gradient} p-6 text-white relative overflow-hidden`}>
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-8 translate-x-8"></div>
+                    <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-8 -translate-x-8"></div>
+                    
+                    <div className="relative z-10">
+                      <Icon className="w-10 h-10 mb-3" />
+                      <h3 className="text-xl font-bold mb-2">{category.name}</h3>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm opacity-90">{category.count} bisnis</span>
+                        <ArrowRight className="w-4 h-4 opacity-75 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="p-6">
+                    <p className="text-gray-600 mb-4 text-sm">
+                      {category.description}
+                    </p>
+                    
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                        <Star className="w-3 h-3" />
+                        Form Khusus Tersedia:
+                      </h4>
+                      <ul className="space-y-1">
+                        {category.features.map((feature, index) => (
+                          <li key={index} className="text-xs text-gray-500 flex items-center gap-2">
+                            <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Action hint */}
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <div className="flex items-center justify-between text-xs text-gray-400 group-hover:text-blue-600 transition-colors">
+                        <span>Klik untuk lanjut</span>
+                        <ChevronRight className="w-3 h-3" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Info Section */}
+        <div className="bg-white rounded-2xl shadow-sm p-8">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              Mengapa Pilih BatamPortal?
+            </h2>
+            <p className="text-gray-600">
+              Platform terpercaya untuk mengembangkan bisnis Anda di Batam
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="text-center">
+              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-blue-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                Jangkauan Luas
+              </h3>
+              <p className="text-sm text-gray-600">
+                Ribuan pengguna aktif setiap hari mencari layanan di Batam
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Star className="w-8 h-8 text-green-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                Form Optimal
+              </h3>
+              <p className="text-sm text-gray-600">
+                Setiap kategori memiliki form khusus yang disesuaikan dengan kebutuhan
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <TrendingUp className="w-8 h-8 text-orange-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                Mudah & Gratis
+              </h3>
+              <p className="text-sm text-gray-600">
+                Pendaftaran mudah, gratis, dan bisnis Anda langsung online
               </p>
             </div>
           </div>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8 space-y-8">
-          
-          {/* Basic Information Section */}
-          <div className="space-y-6">
-            <div className="border-b border-gray-200 pb-4">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-blue-600" />
-                Informasi Dasar
-              </h2>
-              <p className="text-sm text-gray-500 mt-1">Data utama bisnis Anda</p>
-            </div>
-
-            {/* Nama Tempat */}
-            <div className="space-y-2">
-              <label htmlFor="nama" className="block text-sm font-medium text-gray-700">
-                Nama Tempat/Bisnis *
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  id="nama"
-                  value={formData.nama}
-                  onChange={(e) => handleInputChange('nama', e.target.value)}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.nama ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Contoh: Hotel Grand Batam"
-                />
-              </div>
-              {errors.nama && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
-                  {errors.nama}
-                </p>
-              )}
-            </div>
-
-            {/* Alamat */}
-            <div className="space-y-2">
-              <label htmlFor="alamat" className="block text-sm font-medium text-gray-700">
-                Alamat Lengkap *
-              </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                <textarea
-                  id="alamat"
-                  value={formData.alamat}
-                  onChange={(e) => handleInputChange('alamat', e.target.value)}
-                  rows={3}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${
-                    errors.alamat ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Jl. Hang Tuah No. 123, Batam Center, Kota Batam"
-                />
-              </div>
-              {errors.alamat && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
-                  {errors.alamat}
-                </p>
-              )}
-            </div>
-
-            {/* Kategori */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label htmlFor="kategori" className="block text-sm font-medium text-gray-700">
-                  Kategori *
-                </label>
-                <div className="relative">
-                  <select
-                    id="kategori"
-                    value={formData.kategori}
-                    onChange={(e) => handleInputChange('kategori', e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none ${
-                      errors.kategori ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="">Pilih Kategori</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.slug}>
-                        {cat.nama}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-3 h-5 w-5 text-gray-400 pointer-events-none" />
-                </div>
-                {errors.kategori && (
-                  <p className="text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
-                    {errors.kategori}
-                  </p>
-                )}
-              </div>
-
-              {/* Subkategori */}
-              <div className="space-y-2">
-                <label htmlFor="subkategori" className="block text-sm font-medium text-gray-700">
-                  Subkategori *
-                </label>
-                <div className="relative">
-                  <select
-                    id="subkategori"
-                    value={formData.subkategori}
-                    onChange={(e) => handleInputChange('subkategori', e.target.value)}
-                    disabled={!formData.kategori}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none disabled:bg-gray-100 disabled:text-gray-400 ${
-                      errors.subkategori ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="">
-                      {formData.kategori ? 'Pilih Subkategori' : 'Pilih kategori terlebih dahulu'}
-                    </option>
-                    {filteredSubcategories.map((sub) => (
-                      <option key={sub.id} value={sub.slug}>
-                        {sub.nama}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-3 h-5 w-5 text-gray-400 pointer-events-none" />
-                </div>
-                {errors.subkategori && (
-                  <p className="text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
-                    {errors.subkategori}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Category Preview */}
-            {selectedCategory && (
-              <div 
-                className="p-4 rounded-lg border-l-4 bg-gray-50"
-                style={{ borderLeftColor: selectedCategory.color }}
-              >
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-semibold"
-                    style={{ backgroundColor: selectedCategory.color }}
-                  >
-                    {selectedCategory.nama.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">{selectedCategory.nama}</p>
-                    {formData.subkategori && (
-                      <p className="text-sm text-gray-600">
-                        {filteredSubcategories.find(sub => sub.slug === formData.subkategori)?.nama}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Contact Information */}
-          <div className="space-y-6">
-            <div className="border-b border-gray-200 pb-4">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <Phone className="w-5 h-5 text-green-600" />
-                Informasi Kontak
-              </h2>
-              <p className="text-sm text-gray-500 mt-1">Cara pelanggan dapat menghubungi Anda</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Kontak */}
-              <div className="space-y-2">
-                <label htmlFor="kontak" className="block text-sm font-medium text-gray-700">
-                  Nomor Telepon *
-                </label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                  <input
-                    type="tel"
-                    id="kontak"
-                    value={formData.kontak}
-                    onChange={(e) => handleInputChange('kontak', e.target.value)}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errors.kontak ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="0778-123456"
-                  />
-                </div>
-                {errors.kontak && (
-                  <p className="text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
-                    {errors.kontak}
-                  </p>
-                )}
-              </div>
-
-              {/* Email */}
-              <div className="space-y-2">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email (Opsional)
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                  <input
-                    type="email"
-                    id="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange('email', e.target.value)}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errors.email ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="info@bisnis.com"
-                  />
-                </div>
-                {errors.email && (
-                  <p className="text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
-                    {errors.email}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Website */}
-            <div className="space-y-2">
-              <label htmlFor="website" className="block text-sm font-medium text-gray-700">
-                Website (Opsional)
-              </label>
-              <div className="relative">
-                <Globe className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                <input
-                  type="url"
-                  id="website"
-                  value={formData.website}
-                  onChange={(e) => handleInputChange('website', e.target.value)}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.website ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="https://www.bisnis.com"
-                />
-              </div>
-              {errors.website && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
-                  {errors.website}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Additional Information */}
-          <div className="space-y-6">
-            <div className="border-b border-gray-200 pb-4">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-purple-600" />
-                Informasi Tambahan
-              </h2>
-              <p className="text-sm text-gray-500 mt-1">Detail dan media untuk memperkuat profil bisnis</p>
-            </div>
-
-            {/* Deskripsi */}
-            <div className="space-y-2">
-              <label htmlFor="deskripsi" className="block text-sm font-medium text-gray-700">
-                Deskripsi Bisnis (Opsional)
-              </label>
-              <textarea
-                id="deskripsi"
-                value={formData.deskripsi}
-                onChange={(e) => handleInputChange('deskripsi', e.target.value)}
-                rows={4}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                placeholder="Ceritakan tentang bisnis Anda, fasilitas yang tersedia, keunggulan, dan hal menarik lainnya..."
-              />
-              <p className="text-xs text-gray-500">
-                {formData.deskripsi.length}/500 karakter
-              </p>
-            </div>
-
-            {/* Logo Upload */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Logo/Foto Bisnis (Opsional)
-              </label>
-              
-              {!logoPreview ? (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/jpg,image/png,image/webp"
-                    onChange={handleLogoChange}
-                    className="hidden"
-                    id="logo-upload"
-                  />
-                  <label htmlFor="logo-upload" className="cursor-pointer">
-                    <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600 mb-2">
-                      <span className="font-medium text-blue-600">Klik untuk upload</span> atau drag & drop
-                    </p>
-                    <p className="text-sm text-gray-500">PNG, JPG, WebP hingga 5MB</p>
-                  </label>
-                </div>
-              ) : (
-                <div className="relative">
-                  <div className="border border-gray-300 rounded-lg p-4 flex items-center gap-4">
-                    {/* Menggunakan 'object-contain' untuk logo */}
-                    <img 
-                      src={logoPreview} 
-                      alt="Preview" 
-                      className="w-16 h-16 object-contain rounded-lg"
-                    />
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">{formData.logo ?.name}</p>
-                      <p className="text-sm text-gray-500">
-                        {formData.logo && (formData.logo.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={removeLogo}
-                      className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              )}
-              
-              {errors.logo && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
-                  {errors.logo}
-                </p>
-              )}
-            </div>
-
-            {/* 👇 Bagian Unggah Media Tambahan (Gambar & Video) */}
-            <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                    Foto & Video Lainnya (Opsional)
-                </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
-                    <input
-                        type="file"
-                        accept="image/*,video/*"
-                        multiple // Mengizinkan unggahan banyak file
-                        onChange={handleMediaChange}
-                        className="hidden"
-                        id="media-upload"
-                    />
-                    <label htmlFor="media-upload" className="cursor-pointer">
-                        <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600 mb-2">
-                            <span className="font-medium text-blue-600">Klik untuk upload</span> atau drag & drop
-                        </p>
-                        <p className="text-sm text-gray-500">Gambar dan Video (Max 10MB per file)</p>
-                    </label>
-                </div>
-                {errors.media && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-4 h-4" />
-                        {errors.media}
-                    </p>
-                )}
-            </div>
-
-            {/* 👇 Pratinjau media yang diunggah */}
-            {submissionMedia.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {submissionMedia.map((media, index) => (
-                        <div key={index} className="relative group rounded-lg overflow-hidden border border-gray-300">
-                            {media.type === 'photo' ? (
-                                <img
-                                    src={media.preview}
-                                    alt={`Media ${index + 1}`}
-                                    className="w-full h-32 object-cover"
-                                />
-                            ) : (
-                                <div className="w-full h-32 bg-gray-900 flex items-center justify-center relative">
-                                    <video src={media.preview} className="w-full h-full object-cover"></video>
-                                    <VideoIcon className="absolute w-8 h-8 text-white opacity-70" />
-                                </div>
-                            )}
-                            <button
-                                type="button"
-                                onClick={() => removeMedia(index)}
-                                className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            )}
-          </div>
-
-          {/* Submit Button */}
-          <div className="pt-6 border-t border-gray-200">
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={`w-full py-4 px-6 rounded-lg font-medium transition-colors ${
-                isLoading 
-                  ? 'bg-blue-400 cursor-not-allowed' 
-                  : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
-              } text-white`}
-            >
-              {isLoading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="animate-spin" size={20} />
-                  Mengirim...
-                </span>
-              ) : (
-                'Kirimkan Pendaftaran'
-              )}
-            </button>
-          </div>
-
-          {/* Status Message */}
-          {submitStatus !== 'idle' && (
-            <div 
-              className={`p-4 rounded-lg flex items-center gap-3 transition-opacity duration-300 ${
-                submitStatus === 'success' 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-red-100 text-red-800'
-              }`}
-            >
-              {submitStatus === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-              <p className="text-sm font-medium">{statusMessage}</p>
-            </div>
-          )}
-        </form>
+        {/* CTA Section */}
+        <div className="text-center mt-12">
+          <p className="text-sm text-gray-500">
+            Butuh bantuan? Hubungi tim support kami di{' '}
+            <a href="mailto:support@batamportal.com" className="text-blue-600 hover:text-blue-700">
+              support@batamportal.com
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );
