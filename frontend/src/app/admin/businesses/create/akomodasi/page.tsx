@@ -7,10 +7,11 @@ import { useRouter } from 'next/navigation';
 import { 
     ArrowLeft, Building2, MapPin, Phone, Globe, Upload, Mail, AlertCircle,
     Loader2, X, Camera, Wifi, Car, Waves, Dumbbell, Coffee, Utensils, AirVent, Tv,
-    Bath, Bed, Users, Plus, Minus, Check
+    Bath, Bed, Users, Plus, Minus, Check, Bell,
+    Dog // <--- FIX: Dog Icon Ditambahkan di sini
 } from 'lucide-react';
 
-// --- INTERFACES (Disesuaikan untuk kejelasan dan mapping DB) ---
+// --- INTERFACES ---
 
 interface HotelFormData {
     nama: string;
@@ -36,7 +37,7 @@ interface MediaFile {
 }
 
 interface Facility {
-    id: string; // ID string untuk mapping ke tabel amenities (e.g., 'wifi')
+    id: string; // ID string untuk mapping ke tabel FACILITIES (e.g., 'WiFi Gratis')
     name: string;
     icon: React.ElementType;
     category: string;
@@ -46,7 +47,7 @@ interface RoomType {
     id: string;
     name: string;
     description: string;
-    size: string; // Akan di-parse di backend (misal: "25 m²" -> 25)
+    size: string; 
     capacity: number;
     bedType: string;
     price: number;
@@ -62,13 +63,13 @@ export default function HotelFullForm() {
 
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
     const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
-    const [selectedFacilities, setSelectedFacilities] = useState<string[]>([]); // Array of amenity IDs (string)
+    const [selectedFacilities, setSelectedFacilities] = useState<string[]>([]); 
     const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [showSuccess, setShowSuccess] = useState(false);
 
-    // Data statis subkategori (IDEALNYA DIAMBIL DARI /api/subcategories)
+    // Data statis subkategori (MATCHES TABLE SUBCATEGORIES SLUG)
     const subcategories = [
         { id: 1, nama: 'Hotel Bintang 5', slug: 'hotel-bintang-5' },
         { id: 2, nama: 'Hotel Bintang 4', slug: 'hotel-bintang-4' },
@@ -80,18 +81,20 @@ export default function HotelFullForm() {
         { id: 8, nama: 'Apartment', slug: 'apartment' }
     ];
 
-    // Data statis fasilitas (ID string harus sesuai dengan kolom 'name' di tabel amenities)
+    // Data statis fasilitas (ID string harus sesuai dengan kolom 'name' di tabel FACILITIES)
     const availableFacilities: Facility[] = [
-        { id: 'WiFi Gratis', name: 'Wi-Fi Gratis', icon: Wifi, category: 'general' },
-        { id: 'Parkir Gratis', name: 'Parkir Gratis', icon: Car, category: 'general' },
+        { id: 'WiFi Gratis', name: 'Wi-Fi Gratis', icon: Wifi, category: 'basic' },
+        { id: 'Parkir Gratis', name: 'Parkir Gratis', icon: Car, category: 'basic' },
         { id: 'Kolam Renang', name: 'Kolam Renang', icon: Waves, category: 'general' },
-        { id: 'Pusat Kebugaran', name: 'Fitness Center', icon: Dumbbell, category: 'wellness' },
+        { id: 'Pusat Kebugaran', name: 'Pusat Kebugaran', icon: Dumbbell, category: 'wellness' },
         { id: 'Restoran', name: 'Restoran', icon: Utensils, category: 'dining' },
         { id: 'Sarapan Gratis', name: 'Sarapan Gratis', icon: Coffee, category: 'dining' },
-        { id: 'Layanan Kamar', name: 'Room Service', icon: Utensils, category: 'dining' },
-        { id: 'AC', name: 'AC', icon: AirVent, category: 'room' },
-        { id: 'TV', name: 'TV', icon: Tv, category: 'room' },
-        // ... (sisanya tidak dimasukkan ke DB amenities untuk contoh ini, tapi disesuaikan di sini)
+        { id: 'Layanan Kamar', name: 'Layanan Kamar', icon: Bell, category: 'service' },
+        { id: 'AC', name: 'AC', icon: AirVent, category: 'comfort' },
+        { id: 'Televisi', name: 'Televisi', icon: Tv, category: 'room' },
+        { id: 'Hewan Peliharaan Diizinkan', name: 'Hewan Peliharaan Diizinkan', icon: Dog, category: 'policy' },
+        { id: 'Spa', name: 'Spa', icon: Bath, category: 'wellness' }, 
+        { id: 'Business Center', name: 'Business Center', icon: Building2, category: 'business' },
     ];
 
     const handleInputChange = (field: keyof HotelFormData, value: string) => {
@@ -145,7 +148,6 @@ export default function HotelFullForm() {
             }
             
             const previewUrl = URL.createObjectURL(file);
-            // category tidak penting untuk backend, tapi untuk frontend display
             newMedia.push({ file, type: mediaType, preview: previewUrl, category: 'general' }); 
         }
 
@@ -216,8 +218,8 @@ export default function HotelFullForm() {
         }
 
         setIsLoading(true);
-        // const API_URL = '/api/businesses'; // Endpoint POST Create Business
-        const API_URL = 'http://localhost:5000/api/businesses'; 
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+        const SUBMIT_URL = `${API_URL}/api/businesses`; 
 
         // 1. Kumpulkan data ke FormData (wajib untuk file upload)
         const data = new FormData();
@@ -230,24 +232,22 @@ export default function HotelFullForm() {
             }
         });
         
-        // Data Array (Harus di-string-ify menjadi JSON untuk dikirim melalui FormData)
-        data.append('selectedFacilities', JSON.stringify(selectedFacilities));
+        // Data Array (Tabel business_facilities & room_types)
+        data.append('selectedFacilities', JSON.stringify(selectedFacilities)); 
         data.append('roomTypes', JSON.stringify(roomTypes));
 
         // Data File (thumbnail_image & business_media)
         if (formData.logo) {
-            // Fieldname harus 'thumbnail_picture' sesuai routes.ts dan controller
-            data.append('thumbnail_picture', formData.logo); 
+            data.append('thumbnail_picture', formData.logo); // fieldname 'thumbnail_picture'
         }
         
         mediaFiles.forEach((media) => {
-            // Fieldname harus 'media_files' sesuai routes.ts dan controller
-            data.append('media_files', media.file);
+            data.append('media_files', media.file); // fieldname 'media_files'
         });
 
         // 2. Kirim ke API (POST)
         try {
-            const response = await fetch(API_URL, {
+            const response = await fetch(SUBMIT_URL, {
                 method: 'POST',
                 body: data, 
             });
@@ -255,7 +255,6 @@ export default function HotelFullForm() {
             const result = await response.json();
 
             if (!response.ok) {
-                // Tangani error dari backend (termasuk pesan error dari throw new Error)
                 throw new Error(result.error || 'Terjadi kesalahan saat mengirim data. Cek input Anda.');
             }
 

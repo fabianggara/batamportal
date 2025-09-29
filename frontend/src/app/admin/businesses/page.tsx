@@ -9,18 +9,20 @@ import {
     ChevronDown, X, FileText, Users, Mail, Loader2, RefreshCw, Plus, AlertTriangle, Check
 } from "lucide-react";
 
-// --- TIPE DATA BISNIS (Disesuaikan dengan tabel 'businesses') ---
+// --- TIPE DATA BISNIS (Disesuaikan dengan View business_with_category) ---
 type Business = {
     id: number;
-    name: string; // Menggantikan place_name
+    name: string; 
     address: string;
+    // Kolom dari View JOIN
     category_name: string | null; 
     subcategory_name: string | null; 
+    // Kolom dari tabel businesses
     description: string | null;
-    phone: string | null; // Menggantikan contact
+    phone: string | null; 
     email: string | null;
     website: string | null;
-    thumbnail_image: string | null; // Menggantikan thumbnail_picture
+    thumbnail_image: string | null; 
     created_at: string;
 };
 
@@ -170,27 +172,22 @@ export default function BusinessesPage() {
         setError(null);
 
         try {
-            // URL menggunakan endpoint yang sudah kita sepakati: /api/businesses
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
             const response = await fetch(`${apiUrl}/api/businesses`);
 
             if (!response.ok) {
-                // Mencoba membaca pesan error dari backend
                 let errorMessage = `HTTP error! Status: ${response.status}`;
                 try {
                     const errorJson = await response.json();
                     errorMessage = errorJson.error || errorMessage;
-                } catch {
-                    // Jika response bukan JSON (misal 404 HTML), gunakan status code
-                }
+                } catch {}
                 throw new Error(errorMessage);
             }
 
             const result = await response.json();
 
             if (result.success && Array.isArray(result.data)) {
-                // PENTING: Memastikan data yang di-set adalah array
-                setBusinesses(result.data); 
+                setBusinesses(result.data as Business[]); 
             } else {
                 console.error("API did not return a valid array:", result.data);
                 throw new Error(result.error || 'Data yang diterima tidak valid.');
@@ -250,7 +247,6 @@ export default function BusinessesPage() {
 
     // Fungsi untuk ekspor data ke CSV
     const exportToCSV = () => {
-        // ... (Logika export CSV tidak berubah) ...
         const headers = [
             'ID', 'Nama Bisnis', 'Alamat', 'Kategori', 'Sub Kategori', 
             'Deskripsi', 'Kontak', 'Email', 'Website', 'Tanggal Dibuat'
@@ -262,8 +258,8 @@ export default function BusinessesPage() {
                 biz.id,
                 `"${biz.name}"`, 
                 `"${biz.address}"`,
-                `"${biz.category_name || ''}"`,
-                `"${biz.subcategory_name || ''}"`,
+                `"${biz.category_name || ''}"`, // Menggunakan category_name
+                `"${biz.subcategory_name || ''}"`, // Menggunakan subcategory_name
                 `"${(biz.description || '').replace(/"/g, '""')}"`,
                 `"${biz.phone || ''}"`, 
                 `"${biz.email || ''}"`,
@@ -292,11 +288,10 @@ export default function BusinessesPage() {
 
     // Filter dan Sort Logic
     const categories = useMemo(() => {
-        // PERBAIKAN: Menggunakan Array.isArray untuk mencegah error jika businesses bukan array
         if (!Array.isArray(businesses)) return []; 
         
         const cats = [...new Set(businesses 
-            .map(biz => biz.category_name)
+            .map(biz => biz.category_name) // Menggunakan category_name
             .filter(cat => cat !== null && cat !== undefined)
         )] as string[];
         return cats.sort();
@@ -307,40 +302,39 @@ export default function BusinessesPage() {
         
         if (selectedKategori === 'all') {
             const subcats = [...new Set(businesses 
-                .map(biz => biz.subcategory_name)
+                .map(biz => biz.subcategory_name) // Menggunakan subcategory_name
                 .filter(subcat => subcat !== null && subcat !== undefined)
             )] as string[];
             return subcats.sort();
         }
         const subcats = [...new Set(
             businesses 
-                .filter(biz => biz.category_name === selectedKategori)
-                .map(biz => biz.subcategory_name)
+                .filter(biz => biz.category_name === selectedKategori) // Filter berdasarkan category_name
+                .map(biz => biz.subcategory_name) // Menggunakan subcategory_name
                 .filter(subcat => subcat !== null && subcat !== undefined)
         )] as string[];
         return subcats.sort();
     }, [businesses, selectedKategori]);
 
     const filteredBusinesses = useMemo(() => { 
-        // PERBAIKAN: Selalu mulai dengan salinan array yang valid
         let filtered = Array.isArray(businesses) ? [...businesses] : []; 
 
         if (searchTerm) {
             filtered = filtered.filter(biz =>
                 biz.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                 biz.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (biz.category_name && biz.category_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                (biz.subcategory_name && biz.subcategory_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (biz.category_name && biz.category_name.toLowerCase().includes(searchTerm.toLowerCase())) || // Search di category_name
+                (biz.subcategory_name && biz.subcategory_name.toLowerCase().includes(searchTerm.toLowerCase())) || // Search di subcategory_name
                 (biz.description && biz.description.toLowerCase().includes(searchTerm.toLowerCase()))
             );
         }
 
         if (selectedKategori !== 'all') {
-            filtered = filtered.filter(biz => biz.category_name === selectedKategori);
+            filtered = filtered.filter(biz => biz.category_name === selectedKategori); // Filter berdasarkan category_name
         }
 
         if (selectedSubkategori !== 'all') {
-            filtered = filtered.filter(biz => biz.subcategory_name === selectedSubkategori);
+            filtered = filtered.filter(biz => biz.subcategory_name === selectedSubkategori); // Filter berdasarkan subcategory_name
         }
 
         filtered = [...filtered].sort((a, b) => {
@@ -353,7 +347,7 @@ export default function BusinessesPage() {
                     comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
                     break;
                 case 'category':
-                    comparison = (a.category_name || '').localeCompare(b.category_name || '');
+                    comparison = (a.category_name || '').localeCompare(b.category_name || ''); // Sort berdasarkan category_name
                     break;
             }
             return sortOrder === 'asc' ? comparison : -comparison;

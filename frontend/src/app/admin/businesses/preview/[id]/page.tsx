@@ -1,199 +1,102 @@
-// frontend/src/app/admin/submissions/preview/[id]/page.tsx
-
+// frontend/src/app/admin/businesses/preview/[id]/page.tsx
 'use client'
 
 import React, { useState, useEffect } from 'react';
 import Image from "next/image";
 import { useRouter, useParams } from 'next/navigation';
 import { 
-        ChevronLeft, 
-        ChevronRight, 
-        MapPin,
-        Phone,
-        Mail,
-        Globe,
-        Calendar,
-        Share2,
-        Heart,
-        Star,
-        Camera,
-        Play,
-        Clock,
-        Users,
-        Award,
-        Building,
-        Utensils,
-        Car,
-        Briefcase,
-        ArrowLeft,
-        ExternalLink,
-        MessageCircle,
-        Bookmark,
-        MoreVertical,
-        Wifi,
-        Bath,
-        Bell,
-        Snowflake,
-        ParkingSquare,
-        UtensilsCrossed,
-        Dumbbell,
-        // SwimmingPool,
-        Coffee,
-        AirVent,
-        Dog,
-        Tv,
-        BedDouble,
-        Ruler,
-        DoorClosed,
-        ShowerHead,
-        CreditCard,
-        Check,
-        TrendingUp
-        } from 'lucide-react';
+    ChevronLeft, ChevronRight, MapPin, Phone, Mail, Globe, Calendar, Share2, Heart, Star, Camera, Play, Clock, Users, Award, Building, Utensils, Car, Briefcase, ArrowLeft, ExternalLink, MessageCircle, Bookmark, MoreVertical,
+    Wifi, Bath, Bell, Snowflake, ParkingSquare, UtensilsCrossed, Dumbbell, Coffee, AirVent, Dog, Tv, BedDouble, Ruler, DoorClosed, ShowerHead, Check, TrendingUp,
+    Loader2, ChevronDown, ArrowRight // Ditambahkan untuk loading screen
+} from 'lucide-react';
 
-        interface Submission {
-        id: number;
-        place_name: string;
-        thumbnail_picture?: string;
-        email?: string;
-        address: string;
-        category?: string;
-        subcategory?: string;
-        description?: string;
-        contact?: string;
-        website?: string;
-        created_at?: string;
-        updated_at?: string;
-        }
+// --- INTERFACES DARI JOIN BACKEND (getBusinessById) ---
 
-        interface MediaItem {
-        id: number;
-        submission_id: number;
-        media_path: string;
-        media_type: 'photo' | 'video';
-        created_at: string;
-        }
+interface AmenityItem {
+    facility_id: number;
+    name: string; // Nama fasilitas (WiFi Gratis)
+    icon: string; // Icon Lucide (string)
+    is_available: boolean; // Dari business_facilities
+}
 
-// Dummy Data
-const dummyData = {
-    'akomodasi-1234': {
-        ratings: {
-            overall: 4.8,
-            count: 256,
-            breakdown: {
-                kebersihan: 5.0,
-                lokasi: 4.9,
-                staf: 4.8,
-                fasilitas: 4.7,
-                kenyamanan: 4.8,
-            }
-        },
-        amenities: [
-            { name: 'WiFi Gratis', icon: Wifi, isAvailable: true },
-            { name: 'Kolam Renang', icon: Bath, isAvailable: true },
-            { name: 'Parkir Gratis', icon: ParkingSquare, isAvailable: true },
-            { name: 'Restoran', icon: UtensilsCrossed, isAvailable: true },
-            { name: 'Layanan Kamar', icon: Bell, isAvailable: true },
-            { name: 'AC', icon: Snowflake, isAvailable: true },
-            { name: 'Pusat Kebugaran', icon: Dumbbell, isAvailable: true },
-            { name: 'Sarapan Gratis', icon: Coffee, isAvailable: true },
-            { name: 'Hewan Peliharaan Diizinkan', icon: Dog, isAvailable: false },
-            { name: 'Televisi', icon: Tv, isAvailable: true },
-        ],
-        roomCategories: [
-            { 
-                name: 'Standard Twin Room', 
-                price: 450000, 
-                description: 'Kamar nyaman dengan dua tempat tidur single.',
-                size: '20 m²',
-                occupants: 2,
-                image: 'https://images.unsplash.com/photo-1596436889106-be35e84e97d0?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' 
-            },
-            { 
-                name: 'Deluxe Double Room', 
-                price: 680000, 
-                description: 'Kamar luas dengan pemandangan kota dan satu tempat tidur double.',
-                size: '28 m²',
-                occupants: 2,
-                image: 'https://images.unsplash.com/photo-1596394516047-41065147171d?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' 
-            },
-            { 
-                name: 'Family Suite', 
-                price: 950000, 
-                description: 'Suite mewah dengan dua kamar tidur terpisah, cocok untuk keluarga.',
-                size: '50 m²',
-                occupants: 4,
-                image: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?q=80&w=2849&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' 
-            },
-        ],
-        locationInfo: {
-            lat: -0.900987,
-            lng: 104.450321,
-            mapQuery: 'Nagoya, Batam, Riau Islands, Indonesia',
-            nearby: [
-                { name: 'Nagoya Hill Shopping Mall', distance: '1.2 km' },
-                { name: 'Pelabuhan Feri Batam Center', distance: '5.5 km' },
-                { name: 'Bandara Internasional Hang Nadim', distance: '18 km' },
-            ]
-        }
-    },
-    // Bisa tambahkan data dummy untuk kategori lain di sini
-    'kuliner-5678': {
-        ratings: {
-            overall: 4.5,
-            count: 128,
-            breakdown: {
-                kebersihan: 4.8,
-                lokasi: 4.5,
-                pelayanan: 4.6,
-                kualitas_makanan: 4.9,
-            }
-        },
-        amenities: [],
-        roomCategories: [],
-        locationInfo: {
-            lat: -0.900987,
-            lng: 104.450321,
-            mapQuery: 'Nagoya, Batam, Riau Islands, Indonesia',
-            nearby: []
-        }
-    },
-    'transportasi-9012': {
-        ratings: {
-            overall: 4.2,
-            count: 55,
-            breakdown: {
-                kebersihan: 4.0,
-                lokasi: 4.5,
-                pelayanan: 4.3,
-                harga: 4.1,
-            }
-        },
-        amenities: [],
-        roomCategories: [],
-        locationInfo: {
-            lat: -0.900987,
-            lng: 104.450321,
-            mapQuery: 'Nagoya, Batam, Riau Islands, Indonesia',
-            nearby: []
-        }
-    },
+interface RoomType {
+    id: number;
+    name: string;
+    base_price: number;
+    description: string;
+    size_sqm: number;
+    max_occupancy: number;
+    bed_type: string;
+    image_url: string;
+}
+
+interface MediaItem {
+    id: number;
+    business_id: number;
+    file_path: string; 
+    file_type: 'image' | 'video'; 
+}
+
+interface BusinessDetail {
+    id: number;
+    name: string; // businesses.name
+    address: string;
+    description?: string;
+    phone?: string; 
+    email?: string;
+    website?: string;
+    created_at?: string;
+    
+    // Dari View business_with_category
+    category_name?: string; 
+    subcategory_name?: string;
+
+    // Relasional (JOINED)
+    media: MediaItem[]; 
+    amenities: AmenityItem[]; 
+    room_types: RoomType[]; 
+    thumbnail_image?: string; 
+    
+    // Ratings
+    average_rating: number | string; 
+    total_reviews: number; 
+    latitude?: number;
+    longitude?: number;
+}
+// -----------------------------------------------------
+
+// Map string icon name (dari tabel facilities) ke komponen Lucide React
+const iconMap: { [key: string]: React.ElementType } = {
+    Wifi, ParkingSquare, UtensilsCrossed, Bell, Snowflake, Dumbbell, Coffee, Dog, Tv, Bath, 
+    ShowerHead, Check, Building: Building, Utensils: Utensils, Car: Car, Briefcase: Briefcase,
+    DoorClosed: DoorClosed, Ruler: Ruler, BedDouble: BedDouble, Users: Users, Award: Award, 
+    MapPin: MapPin, Camera: Camera, Play: Play, Clock: Clock, AirVent: AirVent,
+    // Menambahkan semua ikon yang mungkin dipanggil di sini
 };
 
-const getAmenityIcon = (name: string) => {
-    switch (name) {
-        case 'WiFi Gratis': return Wifi;
-        case 'Kolam Renang': return Bath;
-        case 'Parkir Gratis': return ParkingSquare;
-        case 'Restoran': return UtensilsCrossed;
-        case 'Layanan Kamar': return DoorClosed;
-        case 'AC': return Snowflake;
-        case 'Pusat Kebugaran': return Dumbbell;
-        case 'Sarapan Gratis': return Coffee;
-        case 'Hewan Peliharaan Diizinkan': return Dog;
-        case 'Televisi': return Tv;
-        case 'Kamar Mandi Pribadi': return Bath;
-        default: return Check;
+const getAmenityIcon = (iconName: string): React.ElementType => {
+    return iconMap[iconName] || Check;
+};
+
+const getCategoryIcon = (category: string) => {
+    switch (category?.toLowerCase()) {
+        case 'akomodasi': return Building;
+        case 'kuliner': return Utensils;
+        case 'transportasi': return Car;
+        case 'bisnis': return Briefcase;
+        default: return Building;
+    }
+};
+
+const getCategoryColor = (category: string) => {
+    switch (category?.toLowerCase()) {
+        case 'akomodasi': return 'from-blue-500 to-blue-600';
+        case 'kuliner': return 'from-orange-500 to-red-500';
+        case 'wisata': return 'from-green-500 to-emerald-600';
+        case 'hiburan': return 'from-purple-500 to-pink-500';
+        case 'transportasi': return 'from-indigo-500 to-blue-500';
+        case 'bisnis': return 'from-gray-600 to-gray-700';
+        default: return 'from-blue-500 to-blue-600';
     }
 };
 
@@ -205,187 +108,174 @@ const formatPrice = (price: number) => {
     }).format(price);
 };
 
+// --- DATA DUMMY UNTUK REVIEW BREAKDOWN (HARUS DI-FETCH DARI REVIEWS) ---
+// Kita gunakan ini sementara menunggu endpoint review breakdown
+const dummyRatingBreakdown = {
+    kebersihan: 4.8, lokasi: 4.5, staf: 4.6, fasilitas: 4.9,
+};
+// -------------------------------------------------------------------------
+
+
 export default function ItemDetailPage() {
     const router = useRouter();
     const params = useParams();
-    const itemId = params?.id;
+    const itemId = params?.id as string;
 
-    const [item, setItem] = useState<Submission | null>(null);
-    const [media, setMedia] = useState<MediaItem[]>([]);
+    const [item, setItem] = useState<BusinessDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
     const [isFavorite, setIsFavorite] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
-    const [relatedItems, setRelatedItems] = useState<Submission[]>([]);
-    const [dummyAccommodationData, setDummyAccommodationData] = useState<any>(null);
+    const [relatedItems, setRelatedItems] = useState<BusinessDetail[]>([]);
     const [mapUrl, setMapUrl] = useState('');
+
+    // Booking states (Dummy untuk UI Akomodasi)
+    const [checkInDate] = useState('2025-09-28');
+    const [checkOutDate] = useState('2025-09-29');
+    const [guests] = useState(2);
+    const [rooms] = useState(1);
+
+    const formatDateDisplay = (dateString: string) => {
+        const date = new Date(dateString);
+        const days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
+    };
+
+    const calculateNights = () => {
+        const checkIn = new Date(checkInDate);
+        const checkOut = new Date(checkOutDate);
+        const timeDiff = checkOut.getTime() - checkIn.getTime();
+        return Math.ceil(timeDiff / (1000 * 3600 * 24));
+    };
 
     useEffect(() => {
         const fetchItemDetail = async () => {
-        if (!itemId) return;
-        
-        try {
-            setLoading(true);
+            if (!itemId) return;
             
-            const itemRes = await fetch(`http://localhost:5000/api/submissions/${itemId}`);
-            const itemJson = await itemRes.json();
-            
-            if (itemJson.success) {
-                setItem(itemJson.data);
+            try {
+                setLoading(true);
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
                 
-                // Fetch media
-                try {
-                    const mediaRes = await fetch(`http://localhost:5000/api/submissions/${itemId}/media`);
-                    const mediaJson = await mediaRes.json();
-                    if (mediaJson.success) {
-                        setMedia(mediaJson.data);
+                // Fetch detail item (GET /api/businesses/:id)
+                const itemRes = await fetch(`${apiUrl}/api/businesses/${itemId}`); 
+                const itemJson = await itemRes.json();
+                
+                if (itemJson.success && itemJson.data) {
+                    const data: BusinessDetail = itemJson.data;
+                    
+                    setItem(data);
+                    
+                    // Media digabung di item.media
+                    const primaryMedia = data.media.filter(m => m.file_type === 'image' && m.file_path === data.thumbnail_image);
+                    const otherMedia = data.media.filter(m => m.file_path !== data.thumbnail_image);
+                    // Prioritaskan thumbnail, lalu media lain
+                    const allMedia = primaryMedia.concat(otherMedia);
+                    // PENTING: Untuk array media, kita menggunakan setItem, bukan setMedia terpisah
+                    
+                    // Setup Map URL
+                    if (data.latitude && data.longitude) {
+                        setMapUrl(`https://maps.google.com/maps?q=${data.latitude},${data.longitude}&z=15&output=embed`);
                     }
-                } catch (mediaErr) {
-                    console.log("No media found for this item");
-                    setMedia([]);
-                }
 
-                // Fetch related items
-                if (itemJson.data.category) {
-                    try {
-                        const relatedRes = await fetch(`http://localhost:5000/api/submissions/category/${encodeURIComponent(itemJson.data.category)}?limit=4&exclude=${itemId}`);
+                    // Fetch related items (GET /api/businesses/related?category_slug=X&exclude=Y)
+                    if (data.category_slug) {
+                        const relatedRes = await fetch(`${apiUrl}/api/businesses/related?category_slug=${data.category_slug}&limit=4&exclude=${itemId}`);
                         const relatedJson = await relatedRes.json();
-                        if (relatedJson.success) {
+                        if (relatedJson.success && Array.isArray(relatedJson.data)) {
                             setRelatedItems(relatedJson.data);
                         }
-                    } catch (relatedErr) {
-                        console.log("No related items found");
-                        setRelatedItems([]);
                     }
-                }
 
-                // Get dummy data if category is 'akomodasi'
-                if (itemJson.data.category?.toLowerCase() === 'akomodasi') {
-                    const data = dummyData['akomodasi-1234'];
-                    setDummyAccommodationData(data);
-                    if (data.locationInfo) {
-                        const { lat, lng } = data.locationInfo;
-                        setMapUrl(`https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`);
-                    }
                 } else {
-                    // Get dummy data for other categories if needed
-                    setDummyAccommodationData(null);
+                    setError("Item tidak ditemukan");
                 }
-
-            } else {
-                setError("Item tidak ditemukan");
+            } catch (err) {
+                console.error("Error fetching item detail:", err);
+                setError("Terjadi kesalahan saat memuat data");
+            } finally {
+                setLoading(false);
             }
-        } catch (err) {
-            console.error("Error fetching item detail:", err);
-            setError("Terjadi kesalahan saat memuat data");
-        } finally {
-            setLoading(false);
-        }
         };
 
         fetchItemDetail();
     }, [itemId]);
 
-    const getCategoryIcon = (category: string) => {
-        switch (category?.toLowerCase()) {
-        case 'akomodasi': return Building;
-        case 'kuliner': return Utensils;
-        case 'transportasi': return Car;
-        case 'bisnis': return Briefcase;
-        default: return Building;
-        }
-    };
-
-    const getCategoryColor = (category: string) => {
-        switch (category?.toLowerCase()) {
-        case 'akomodasi': return 'from-blue-500 to-blue-600';
-        case 'kuliner': return 'from-orange-500 to-red-500';
-        case 'wisata': return 'from-green-500 to-emerald-600';
-        case 'hiburan': return 'from-purple-500 to-pink-500';
-        case 'transportasi': return 'from-indigo-500 to-blue-500';
-        case 'bisnis': return 'from-gray-600 to-gray-700';
-        default: return 'from-blue-500 to-blue-600';
-        }
-    };
-
-    const formatDate = (dateString: string) => {
+    const formatDate = (dateString: string | undefined) => {
+        if (!dateString) return 'N/A';
         return new Date(dateString).toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
         });
     };
 
-    const handleShare = async () => {
-        if (navigator.share && item) {
-        try {
-            await navigator.share({
-            title: item.place_name,
-            text: item.description,
-            url: window.location.href
-            });
-        } catch (err) {
-            console.log('Error sharing:', err);
-        }
-        } else {
-        setShowShareModal(true);
-        }
-    };
-
-    const handleContact = () => {
-        if (item?.contact) {
-        window.open(`tel:${item.contact}`, '_self');
-        }
-    };
-
-    const handleEmail = () => {
-        if (item?.email) {
-        window.open(`mailto:${item.email}`, '_self');
-        }
-    };
-
-    const handleWebsite = () => {
-        if (item?.website) {
-        const url = item.website.startsWith('http') ? item.website : `https://${item.website}`;
-        window.open(url, '_blank');
-        }
-    };
-
+    // Handler Navigasi Media
     const nextMedia = () => {
-        setCurrentMediaIndex((prev) => (prev + 1) % media.length);
+        if (item?.media) setCurrentMediaIndex((prev) => (prev + 1) % item.media.length);
     };
 
     const prevMedia = () => {
-        setCurrentMediaIndex((prev) => (prev - 1 + media.length) % media.length);
+        if (item?.media) setCurrentMediaIndex((prev) => (prev - 1 + item.media.length) % item.media.length);
+    };
+
+    // Handler Kontak
+    const handleShare = async () => { /* ... logic share ... */ };
+    const handleContact = () => { if (item?.phone) window.open(`tel:${item.phone}`, '_self'); };
+    const handleEmail = () => { if (item?.email) window.open(`mailto:${item.email}`, '_self'); };
+    const handleWebsite = () => { 
+        if (item?.website) {
+            const url = item.website.startsWith('http') ? item.website : `https://${item.website}`;
+            window.open(url, '_blank');
+        }
+    };
+    
+    // Handler Booking (Dummy)
+    const handleBooking = () => {
+        const bookingParams = new URLSearchParams({
+            itemId: item?.id?.toString() || '',
+            hotelName: item?.name || '',
+            categoryName: item?.category_name || '',
+            checkIn: checkInDate,
+            checkOut: checkOutDate,
+            guests: guests.toString(),
+            rooms: rooms.toString()
+        });
+        
+        router.push(`/form/accommodationBook?${bookingParams.toString()}`);
     };
 
     if (loading) {
         return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-        </div>
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+            </div>
         );
     }
 
     if (error || !item) {
         return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-            <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Oops!</h2>
-            <p className="text-gray-600 mb-6">{error || "Item tidak ditemukan"}</p>
-            <button 
-                onClick={() => router.back()}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-                Kembali
-            </button>
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-4">Oops!</h2>
+                    <p className="text-gray-600 mb-6">{error || "Item tidak ditemukan"}</p>
+                    <button 
+                        onClick={() => router.back()}
+                        className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        Kembali
+                    </button>
+                </div>
             </div>
-        </div>
         );
     }
 
-    const CategoryIcon = getCategoryIcon(item.category || '');
+    const CategoryIcon = getCategoryIcon(item.category_name || '');
+    const isAccommodation = item.category_name?.toLowerCase() === 'akomodasi';
+    const media = item.media || [];
+    const displayedMedia = media[currentMediaIndex];
+    const numericRating = parseFloat(item.average_rating as string) || 0;
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -399,12 +289,13 @@ export default function ItemDetailPage() {
                     className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                 >
                     <ArrowLeft className="w-5 h-5" />
+                    {/* Kembali ke List Bisnis */}
                 </button>
                 <div>
                     <h1 className="text-xl font-bold text-gray-800 truncate max-w-md">
-                    {item.place_name}
+                    {item.name}
                     </h1>
-                    <p className="text-sm text-gray-500">{item.category}</p>
+                    <p className="text-sm text-gray-500">{item.category_name}</p>
                 </div>
                 </div>
                 
@@ -431,6 +322,68 @@ export default function ItemDetailPage() {
             </div>
         </div>
 
+        {/* Booking Bar for Accommodation */}
+        {isAccommodation && (
+                <div className="bg-white border-b border-gray-200 py-4">
+                    <div className="max-w-6xl mx-auto px-4">
+                        <div className="bg-blue-50 rounded-2xl p-6 border border-blue-200">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                {/* Check-in Date */}
+                                <div>
+                                    <label className="text-sm font-semibold text-blue-700 mb-2 block">Check-in</label>
+                                    <div className="relative">
+                                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
+                                        <input type="date" value={checkInDate} className="w-full pl-10 pr-4 py-3 border border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" readOnly />
+                                    </div>
+                                </div>
+
+                                {/* Check-out Date */}
+                                <div>
+                                    <label className="text-sm font-semibold text-blue-700 mb-2 block">Check-out</label>
+                                    <div className="relative">
+                                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
+                                        <input type="date" value={checkOutDate} className="w-full pl-10 pr-4 py-3 border border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" readOnly />
+                                    </div>
+                                </div>
+
+                                {/* Guests & Rooms */}
+                                <div>
+                                    <label className="text-sm font-semibold text-blue-700 mb-2 block">Tamu & Kamar</label>
+                                    <div className="relative">
+                                        <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
+                                        <select value={`${guests}-${rooms}`} className="w-full pl-10 pr-10 py-3 border border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white appearance-none" readOnly>
+                                            <option value={`${guests}-${rooms}`}>{guests} tamu, {rooms} kamar</option>
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
+                                    </div>
+                                </div>
+
+                                {/* Search Button */}
+                                <div className="flex items-end">
+                                    <button 
+                                        onClick={handleBooking}
+                                        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+                                    >
+                                        Konfirm Pencarian
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div className="mt-4 flex items-center gap-4 text-sm text-blue-700">
+                                <div className="flex items-center gap-2">
+                                    <Clock className="w-4 h-4" />
+                                    <span>{calculateNights()} malam</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Users className="w-4 h-4" />
+                                    <span>{guests} tamu dalam {rooms} kamar</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         <div className="max-w-6xl mx-auto px-4 py-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Main Content */}
@@ -442,16 +395,17 @@ export default function ItemDetailPage() {
                     <div className="relative h-80 overflow-hidden">
                         <Image
                         src={
-                            media[currentMediaIndex]?.media_path?.startsWith("http")
-                            ? media[currentMediaIndex].media_path
-                            : `http://localhost:5000/uploads/${media[currentMediaIndex]?.media_path}`
+                            displayedMedia.file_path?.startsWith("http")
+                            ? displayedMedia.file_path
+                            : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/uploads/${displayedMedia.file_path}`
                         }
-                        alt={item.place_name}
+                        alt={item.name}
                         fill
+                        sizes="(max-width: 768px) 100vw, 66vw"
                         className="object-cover"
                         />
                         
-                        {media[currentMediaIndex]?.media_type === 'video' && (
+                        {displayedMedia.file_type === 'video' && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                             <button className="bg-white/90 hover:bg-white rounded-full p-4 transition-colors">
                             <Play className="w-8 h-8 text-gray-800" />
@@ -476,16 +430,17 @@ export default function ItemDetailPage() {
                         </>
                         )}
                     </div>
-                    ) : item.thumbnail_picture ? (
+                    ) : item.thumbnail_image ? (
                     <div className="relative h-80 overflow-hidden">
                         <Image
                         src={
-                            item.thumbnail_picture?.startsWith("http")
-                            ? item.thumbnail_picture
-                            : `http://localhost:5000/uploads/${item.thumbnail_picture}`
+                            item.thumbnail_image?.startsWith("http")
+                            ? item.thumbnail_image
+                            : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/uploads/${item.thumbnail_image}`
                         }
-                        alt={item.place_name}
+                        alt={item.name}
                         fill
+                        sizes="(max-width: 768px) 100vw, 66vw"
                         className="object-cover"
                         />
                     </div>
@@ -496,7 +451,7 @@ export default function ItemDetailPage() {
                     )}
 
                     {/* Media Counter */}
-                    {media.length > 1 && (
+                    {media.length > 0 && (
                     <div className="absolute bottom-4 right-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
                         {currentMediaIndex + 1} / {media.length}
                     </div>
@@ -516,15 +471,15 @@ export default function ItemDetailPage() {
                         >
                         <Image
                             src={
-                            mediaItem.media_path?.startsWith("http")
-                                ? mediaItem.media_path
-                                : `http://localhost:5000/uploads/${mediaItem.media_path}`
+                            mediaItem.file_path?.startsWith("http")
+                                ? mediaItem.file_path
+                                : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/uploads/${mediaItem.file_path}`
                             }
-                            alt={`${item.place_name} ${index + 1}`}
+                            alt={`${item.name} ${index + 1}`}
                             fill
                             className="object-cover"
                         />
-                        {mediaItem.media_type === 'video' && (
+                        {mediaItem.file_type === 'video' && (
                             <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                             <Play className="w-4 h-4 text-white" />
                             </div>
@@ -539,13 +494,13 @@ export default function ItemDetailPage() {
                 <div className="bg-white rounded-2xl shadow-sm p-6">
                     <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
-                        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-white text-sm mb-3 bg-gradient-to-r ${getCategoryColor(item.category || '')}`}>
+                        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-white text-sm mb-3 bg-gradient-to-r ${getCategoryColor(item.category_name || '')}`}>
                             <CategoryIcon className="w-4 h-4" />
-                            {item.category}
-                            {item.subcategory && <span>• {item.subcategory}</span>}
+                            {item.category_name}
+                            {item.subcategory_name && <span>• {item.subcategory_name}</span>}
                         </div>
                         
-                        <h2 className="text-2xl font-bold text-gray-800 mb-2">{item.place_name}</h2>
+                        <h2 className="text-2xl font-bold text-gray-800 mb-2">{item.name}</h2>
                         
                         <div className="flex items-center gap-2 text-gray-600 mb-4">
                             <MapPin className="w-4 h-4" />
@@ -555,8 +510,11 @@ export default function ItemDetailPage() {
                         
                         <div className="flex items-center gap-1">
                             <Star className="w-5 h-5 text-yellow-400 fill-current" />
-                            <span className="font-semibold">{dummyAccommodationData?.ratings?.overall || 'N/A'}</span>
-                            <span className="text-gray-500 text-sm">({dummyAccommodationData?.ratings?.count || 0})</span>
+                            {/* Memperbaiki TypeError: toFixed is not a function */}
+                            <span className="font-semibold">
+                                {numericRating > 0 ? numericRating.toFixed(1) : 'N/A'}
+                            </span>
+                            <span className="text-gray-500 text-sm">({item.total_reviews || 0})</span>
                         </div>
                     </div>
 
@@ -569,33 +527,35 @@ export default function ItemDetailPage() {
                         </div>
                     )}
                     
-                    {dummyAccommodationData?.amenities && (
+                    {item.amenities?.length > 0 && (
                         <div className="mt-6">
-                        <h3 className="font-bold text-gray-800 text-lg mb-4">Fasilitas</h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                            {dummyAccommodationData.amenities.map((amenity: any, index: number) => {
-                                const AmenityIcon = getAmenityIcon(amenity.name);
-                                return (
-                                    <div key={index} className={`flex items-center gap-2 ${!amenity.isAvailable && 'text-gray-400 line-through'}`}>
-                                    <AmenityIcon className="w-5 h-5 flex-shrink-0" />
-                                    <span className="text-sm">{amenity.name}</span>
-                                    </div>
-                                )
-                            })}
-                        </div>
+                            <h3 className="font-bold text-gray-800 text-lg mb-4">Fasilitas</h3>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                {item.amenities.map((amenity: AmenityItem, index: number) => {
+                                    const AmenityIcon = getAmenityIcon(amenity.icon);
+                                    return (
+                                        <div key={index} className={`flex items-center gap-2 ${!amenity.is_available && 'text-gray-400 line-through'}`}>
+                                        <AmenityIcon className="w-5 h-5 flex-shrink-0" />
+                                        <span className="text-sm">{amenity.name}</span>
+                                        </div>
+                                    )
+                                })}
+                            </div>
                         </div>
                     )}
                 </div>
                 
-                {/* Kategori Kamar */}
-                {dummyAccommodationData?.roomCategories && (
+                {/* Kategori Kamar (Hanya untuk Akomodasi) */}
+                {isAccommodation && item.room_types?.length > 0 && (
                     <div className="bg-white rounded-2xl shadow-sm p-6 mt-6">
                     <h3 className="text-lg font-bold text-gray-800 mb-4">Kategori Kamar</h3>
                     <div className="space-y-4">
-                        {dummyAccommodationData.roomCategories.map((room: any, index: number) => (
+                        {item.room_types.map((room: RoomType, index: number) => (
                             <div key={index} className="border rounded-lg overflow-hidden md:flex">
                                 <div className="relative w-full h-40 md:w-1/3 md:h-auto">
-                                    <Image src={room.image} alt={room.name} fill className="object-cover" />
+                                    {room.image_url && (
+                                        <Image src={room.image_url} alt={room.name} fill sizes="33vw" className="object-cover" />
+                                    )}
                                 </div>
                                 <div className="p-4 flex flex-col justify-between w-full">
                                     <div>
@@ -603,19 +563,24 @@ export default function ItemDetailPage() {
                                         <p className="text-sm text-gray-500 mt-1">{room.description}</p>
                                         <div className="flex items-center gap-3 text-sm text-gray-500 mt-2">
                                             <div className="flex items-center gap-1">
-                                                <Users className="w-4 h-4" /> <span>{room.occupants} Tamu</span>
+                                                <Users className="w-4 h-4" /> <span>{room.max_occupancy} Tamu</span>
                                             </div>
                                             <div className="flex items-center gap-1">
-                                                <Ruler className="w-4 h-4" /> <span>{room.size}</span>
+                                                <Ruler className="w-4 h-4" /> <span>{room.size_sqm} m²</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <BedDouble className="w-4 h-4" /> <span>{room.bed_type}</span>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="mt-4 md:mt-0 md:pl-4 md:border-l">
                                         <p className="text-sm text-gray-500">Mulai dari</p>
                                         <p className="text-xl font-bold text-blue-600">
-                                            {formatPrice(room.price)}
+                                            {formatPrice(room.base_price)}
                                         </p>
-                                        <button className="mt-2 w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                                        <button
+                                            onClick={handleBooking}
+                                            className="mt-2 w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm">
                                             Pesan Sekarang
                                         </button>
                                     </div>
@@ -627,42 +592,44 @@ export default function ItemDetailPage() {
                 )}
 
                 {/* Lokasi & Lingkungan Sekitar */}
-                {dummyAccommodationData?.locationInfo && (
+                {item.latitude && item.longitude && (
                     <div className="bg-white rounded-2xl shadow-sm p-6 mt-6">
-                    <h3 className="text-lg font-bold text-gray-800 mb-4">Lokasi & Lingkungan Sekitar</h3>
-                    <div className="relative h-64 rounded-lg overflow-hidden mb-4">
-                        <iframe
-                            width="100%"
-                            height="100%"
-                            src={mapUrl}
-                            frameBorder="0"
-                            style={{ border: 0 }}
-                            allowFullScreen
-                            aria-hidden="false"
-                            tabIndex={0}
-                        ></iframe>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-4">
-                        {item.place_name} berlokasi di {item.address}
-                    </p>
-                    <h4 className="font-semibold text-gray-800 mb-2">Tempat terdekat:</h4>
-                    <div className="space-y-2 text-sm text-gray-600">
-                        {dummyAccommodationData.locationInfo.nearby.map((place: any, index: number) => (
-                            <div key={index} className="flex justify-between items-center">
-                                <span>{place.name}</span>
-                                <span className="text-gray-400">{place.distance}</span>
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">Lokasi & Lingkungan Sekitar</h3>
+                        <div className="relative h-64 rounded-lg overflow-hidden mb-4">
+                            <iframe
+                                width="100%"
+                                height="100%"
+                                src={mapUrl}
+                                frameBorder="0"
+                                style={{ border: 0 }}
+                                allowFullScreen
+                                aria-hidden="false"
+                                tabIndex={0}
+                            ></iframe>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-4">
+                            {item.name} berlokasi di {item.address}
+                        </p>
+                        {/* Dummy Nearby: Anda harus mengganti ini dengan data dari tabel nearby_places */}
+                        <h4 className="font-semibold text-gray-800 mb-2">Tempat terdekat:</h4>
+                        <div className="space-y-2 text-sm text-gray-600">
+                            <div className="flex justify-between items-center">
+                                <span>Nagoya Hill Shopping Mall</span>
+                                <span className="text-gray-400">1.2 km</span>
                             </div>
-                        ))}
-                    </div>
+                            <div className="flex justify-between items-center">
+                                <span>Pelabuhan Feri Batam Center</span>
+                                <span className="text-gray-400">5.5 km</span>
+                            </div>
+                        </div>
                     </div>
                 )}
                 
-                {/* Ulasan & Penilaian */}
-                {dummyAccommodationData?.ratings?.breakdown && (
-                    <div className="bg-white rounded-2xl shadow-sm p-6 mt-6">
+                {/* Ulasan & Penilaian (Dummy) */}
+                <div className="bg-white rounded-2xl shadow-sm p-6 mt-6">
                     <h3 className="text-lg font-bold text-gray-800 mb-4">Ulasan & Penilaian</h3>
                     <div className="grid grid-cols-2 gap-4">
-                        {Object.entries(dummyAccommodationData.ratings.breakdown).map(([key, value]) => (
+                        {Object.entries(dummyRatingBreakdown).map(([key, value]) => (
                             <div key={key}>
                                 <p className="text-sm text-gray-500 capitalize">{key}</p>
                                 <div className="flex items-center gap-2">
@@ -674,61 +641,109 @@ export default function ItemDetailPage() {
                             </div>
                         ))}
                     </div>
-                    </div>
-                )}
+                </div>
 
                 {/* Related Items */}
                 {relatedItems.length > 0 && (
                     <div className="bg-white rounded-2xl shadow-sm p-6 mt-6">
-                    <h3 className="text-xl font-bold text-gray-800 mb-4">Rekomendasi Lainnya</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {relatedItems.map((relatedItem) => (
-                        <div
-                        key={relatedItem.id}
-                        onClick={() => router.push(`/itemDetail/${relatedItem.id}`)}
-                        className="flex gap-3 p-3 border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
-                        >
-                        <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                            {relatedItem.thumbnail_picture ? (
-                            <Image
-                                src={
-                                relatedItem.thumbnail_picture?.startsWith("http")
-                                    ? relatedItem.thumbnail_picture
-                                    : `http://localhost:5000/uploads/${relatedItem.thumbnail_picture}`
-                                }
-                                alt={relatedItem.place_name}
-                                fill
-                                className="object-cover"
-                            />
-                            ) : (
-                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                                <Camera className="w-6 h-6 text-gray-400" />
+                        <h3 className="text-xl font-bold text-gray-800 mb-4">Rekomendasi Lainnya</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {relatedItems.map((relatedItem) => (
+                            <div
+                                key={relatedItem.id}
+                                onClick={() => router.push(`/category/${relatedItem.category_slug}/detail/${relatedItem.id}`)}
+                                className="flex gap-3 p-3 border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
+                            >
+                                <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                                    {relatedItem.thumbnail_image ? (
+                                    <Image
+                                        src={
+                                        relatedItem.thumbnail_image?.startsWith("http")
+                                            ? relatedItem.thumbnail_image
+                                            : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/uploads/${relatedItem.thumbnail_image}`
+                                        }
+                                        alt={relatedItem.name}
+                                        fill
+                                        className="object-cover"
+                                    />
+                                    ) : (
+                                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                        <Camera className="w-6 h-6 text-gray-400" />
+                                    </div>
+                                    )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h4 className="font-semibold text-gray-800 text-sm truncate">{relatedItem.name}</h4>
+                                    <p className="text-xs text-gray-500 mt-1">{relatedItem.category_name}</p>
+                                    <div className="flex items-center gap-1 mt-1">
+                                    <MapPin className="w-3 h-3 text-gray-400" />
+                                    <span className="text-xs text-gray-500 truncate">{relatedItem.address}</span>
+                                    </div>
+                                </div>
                             </div>
-                            )}
+                        ))}
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-gray-800 text-sm truncate">{relatedItem.place_name}</h4>
-                            <p className="text-xs text-gray-500 mt-1">{relatedItem.category}</p>
-                            <div className="flex items-center gap-1 mt-1">
-                            <MapPin className="w-3 h-3 text-gray-400" />
-                            <span className="text-xs text-gray-500 truncate">{relatedItem.address}</span>
-                            </div>
-                        </div>
-                        </div>
-                    ))}
                     </div>
-                </div>
                 )}
             </div>
 
             {/* Sidebar */}
             <div className="space-y-6">
+                {/* Booking Summary for Accommodation */}
+                {isAccommodation && (
+                    <div className="bg-white rounded-2xl shadow-sm p-6 border-2 border-blue-200">
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">Ringkasan Pemesanan</h3>
+                        
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                    <Calendar className="w-4 h-4 text-blue-600" />
+                                    <span className="text-sm font-medium">Check-in</span>
+                                </div>
+                                <span className="font-bold text-blue-800">{formatDateDisplay(checkInDate)}</span>
+                            </div>
+                            
+                            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                    <Calendar className="w-4 h-4 text-blue-600" />
+                                    <span className="text-sm font-medium">Check-out</span>
+                                </div>
+                                <span className="font-bold text-blue-800">{formatDateDisplay(checkOutDate)}</span>
+                            </div>
+                            
+                            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                    <Clock className="w-4 h-4 text-green-600" />
+                                    <span className="text-sm font-medium">Durasi</span>
+                                </div>
+                                <span className="font-bold text-green-800">{calculateNights()} malam</span>
+                            </div>
+                            
+                            <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                    <Users className="w-4 h-4 text-purple-600" />
+                                    <span className="text-sm font-medium">Tamu & Kamar</span>
+                                </div>
+                                <span className="font-bold text-purple-800">{guests} tamu, {rooms} kamar</span>
+                            </div>
+                        </div>
+                        
+                        <button 
+                            onClick={handleBooking}
+                            className="w-full mt-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center justify-center gap-2"
+                        >
+                            <span>Lanjut ke Pemesanan</span>
+                            <ArrowRight className="w-5 h-5" />
+                        </button>
+                    </div>
+                )}
+
                 {/* Contact Information */}
                 <div className="bg-white rounded-2xl shadow-sm p-6">
                 <h3 className="text-lg font-bold text-gray-800 mb-4">Informasi Kontak</h3>
                 
                 <div className="space-y-3">
-                    {item.contact && (
+                    {item.phone && (
                     <button
                         onClick={handleContact}
                         className="w-full flex items-center gap-3 p-3 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors text-left"
@@ -738,7 +753,7 @@ export default function ItemDetailPage() {
                         </div>
                         <div>
                         <p className="text-sm text-gray-500">Telepon</p>
-                        <p className="font-semibold text-gray-800">{item.contact}</p>
+                        <p className="font-semibold text-gray-800">{item.phone}</p>
                         </div>
                     </button>
                     )}
@@ -788,8 +803,8 @@ export default function ItemDetailPage() {
                 <div className="grid grid-cols-2 gap-3 mt-4">
                     <button 
                     onClick={() => {
-                        const message = `Halo! Saya tertarik dengan ${item.place_name}. Bisa minta info lebih lanjut?`;
-                        const phoneNumber = item.contact?.replace(/\D/g, '');
+                        const message = `Halo! Saya tertarik dengan ${item.name}. Bisa minta info lebih lanjut?`;
+                        const phoneNumber = item.phone?.replace(/\D/g, '');
                         const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
                         window.open(whatsappUrl, '_blank');
                     }}
@@ -880,7 +895,7 @@ export default function ItemDetailPage() {
                 </button>
                 <button
                     onClick={() => {
-                    window.open(`https://wa.me/?text=${encodeURIComponent(`${item.place_name} - ${window.location.href}`)}`, '_blank');
+                    window.open(`https://wa.me/?text=${encodeURIComponent(`${item.name} - ${window.location.href}`)}`, '_blank');
                     setShowShareModal(false);
                     }}
                     className="w-full flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50"

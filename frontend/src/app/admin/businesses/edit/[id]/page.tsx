@@ -1,1042 +1,720 @@
-// src/app/admin/submissions/edit/[id]/page.tsx
+// frontend/src/app/admin/businesses/edit/[id]/page.tsx
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import NextImage from "next/image";
 import { useRouter, useParams } from "next/navigation";
 import { 
-    Building2, 
-    MapPin, 
-    Phone, 
-    Globe, 
-    Upload, 
-    FileText, 
-    Mail,
-    User,
-    CheckCircle,
-    AlertCircle,
-    Loader2,
-    X,
-    ChevronDown,
-    Image as ImageIcon,
-    Video as VideoIcon,
-    ArrowLeft,
-    Save
-    } from 'lucide-react';
+    Building2, MapPin, Phone, Globe, Upload, Mail, AlertCircle, Loader2, X, Camera,
+    Wifi, Car, Waves, Dumbbell, Coffee, Utensils, AirVent, Tv, Bath, Bed, Plus, Minus, 
+    Check, Bell, Dog, ArrowLeft, Save, Users as UsersIcon, Ruler, BedDouble
+} from 'lucide-react';
 
-    // Types
-    type Category = {
+// --- INTERFACE BACKEND RESPONSE & STATE ---
+interface Category {
     id: number;
-    nama: string;
+    name: string; // Menggantikan nama
     slug: string;
-    color: string;
-    icon: string;
-    };
+}
 
-    type Subcategory = {
+interface Subcategory {
     id: number;
-    kategori_id: number;
-    nama: string;
+    category_id: number; // Menggantikan kategori_id
+    name: string; // Menggantikan nama
     slug: string;
-    };
+}
 
-    type SubmissionMedia = {
+interface MediaFile {
     file: File;
     type: 'photo' | 'video';
-    preview: string;
-    };
+    preview: string; // Blob URL di frontend
+}
 
-    type ExistingMedia = {
+interface ExistingMedia {
+    id: number; // business_media.id
+    file_path: string; // business_media.file_path (URL/Path)
+    file_type: 'image' | 'video'; // Menggantikan media_type
+}
+
+interface Facility {
+    id: string; // Menggunakan NAME string sebagai ID untuk frontend toggle
+    name: string; 
+    icon: React.ElementType;
+}
+
+interface RoomType {
+    // Note: ID RoomType dari DB adalah number, tapi di state kita gunakan string untuk yang baru dibuat
+    id: string | number; 
+    name: string;
+    description: string;
+    size_sqm: number; // Disesuaikan dengan DB
+    max_occupancy: number; // Disesuaikan dengan DB
+    bed_type: string;
+    base_price: number;
+    image_url?: string;
+}
+
+interface BusinessData {
+    // Data utama dari tabel businesses
     id: number;
-    media_path: string;
-    media_type: 'photo' | 'video';
-    };
+    name: string; // businesses.name
+    address: string;
+    description: string;
+    phone: string;
+    email: string;
+    website: string;
+    latitude: number;
+    longitude: number;
+    thumbnail_image: string; // businesses.thumbnail_image
+    
+    // Data ter-join (ID diganti slug/nama untuk form)
+    category_slug: string; 
+    subcategory_slug: string; 
 
-    export default function ModernEditSubmissionPage() {
+    // Data Relasional
+    media: ExistingMedia[]; // business_media
+    amenities: { name: string, icon: string }[]; // business_facilities JOIN facilities
+    room_types: RoomType[]; // room_types
+    // Asumsi jam operasional di-join di hours array (business_hours)
+    hours: { day_of_week: number, open_time: string, close_time: string }[];
+}
+
+interface FormData {
+    nama: string;
+    alamat: string;
+    kategori: string; // slug kategori
+    subkategori: string; // slug subkategori
+    kontak: string;
+    website: string;
+    email: string;
+    deskripsi: string;
+    logo: File | null;
+    latitude: string;
+    longitude: string;
+    checkIn?: string;
+    checkOut?: string;
+}
+
+export default function EditSubmissionForm() {
     const router = useRouter();
     const params = useParams();
-    const submissionId = params?.id as string;
+    const businessId = params?.id as string; // Menggunakan businessId
 
-    // Form state
-    const [formData, setFormData] = useState({
-        place_name: '',
-        address: '',
-        category: '',
-        subcategory: '',
-        contact: '',
-        website: '',
-        email: '',
-        description: '',
-        thumbnail_picture: null as File | null,
+    const [formData, setFormData] = useState<FormData>({
+        nama: '', alamat: '', kategori: '', subkategori: '', kontak: '', website: '', 
+        email: '', deskripsi: '', logo: null, latitude: '', longitude: '', 
+        checkIn: '14:00', checkOut: '12:00'
     });
 
-    // Media states
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
     const [existingMedia, setExistingMedia] = useState<ExistingMedia[]>([]);
-    const [newMedia, setNewMedia] = useState<SubmissionMedia[]>([]);
+    const [newMedia, setNewMedia] = useState<MediaFile[]>([]);
     const [removedMediaIds, setRemovedMediaIds] = useState<number[]>([]);
-
-    // UI states
+    const [selectedFacilities, setSelectedFacilities] = useState<string[]>([]);
+    const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
+    
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
-    const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
-    const [statusMessage, setStatusMessage] = useState('');
+    const [showSuccess, setShowSuccess] = useState(false);
+
+    // Data statis/default kategori (IDEALNYA DI-FETCH DARI /api/categories)
+    const categories: Category[] = [
+        { id: 1, nama: 'Akomodasi', slug: 'akomodasi' },
+        { id: 2, nama: 'Wisata', slug: 'wisata' },
+        { id: 3, nama: 'Kuliner', slug: 'kuliner' },
+    ];
+
+    // Data subkategori (IDEALNYA DI-FETCH DARI /api/subcategories)
+    const subcategories: Subcategory[] = [
+        { id: 1, category_id: 1, nama: 'Hotel Bintang 5', slug: 'hotel-bintang-5' },
+        { id: 2, category_id: 1, nama: 'Hotel Bintang 4', slug: 'hotel-bintang-4' },
+        { id: 3, category_id: 1, nama: 'Hotel Bintang 3', slug: 'hotel-bintang-3' },
+        { id: 11, category_id: 3, nama: 'Restoran', slug: 'restoran' },
+        { id: 12, category_id: 3, nama: 'Kafe', slug: 'kafe' },
+    ];
+
+    // Data fasilitas (ID string harus sesuai dengan kolom 'name' di tabel FACILITIES)
+    const availableFacilities: Facility[] = [
+        { id: 'WiFi Gratis', name: 'Wi-Fi Gratis', icon: Wifi },
+        { id: 'Parkir Gratis', name: 'Parkir Gratis', icon: Car },
+        { id: 'Kolam Renang', name: 'Kolam Renang', icon: Waves },
+        { id: 'Pusat Kebugaran', name: 'Pusat Kebugaran', icon: Dumbbell },
+        { id: 'Restoran', name: 'Restoran', icon: Utensils },
+        { id: 'Sarapan Gratis', name: 'Sarapan Gratis', icon: Coffee },
+        { id: 'Layanan Kamar', name: 'Layanan Kamar', icon: Bell },
+        { id: 'AC', name: 'AC', icon: AirVent },
+        { id: 'Televisi', name: 'Televisi', icon: Tv },
+        { id: 'Hewan Peliharaan Diizinkan', name: 'Hewan Peliharaan Diizinkan', icon: Dog },
+        { id: 'Spa', name: 'Spa', icon: Bath },
+    ];
     
-    // Categories and subcategories data
-    const [categories] = useState<Category[]>([
-        { id: 1, nama: 'Akomodasi', slug: 'akomodasi', color: '#3B82F6', icon: 'building' },
-        { id: 2, nama: 'Wisata', slug: 'wisata', color: '#10B981', icon: 'map-pin' },
-        { id: 3, nama: 'Kuliner', slug: 'kuliner', color: '#F59E0B', icon: 'utensils' },
-        { id: 4, nama: 'Hiburan', slug: 'hiburan', color: '#8B5CF6', icon: 'music' },
-        { id: 5, nama: 'Transportasi', slug: 'transportasi', color: '#EF4444', icon: 'car' },
-        { id: 6, nama: 'Kesehatan', slug: 'kesehatan', color: '#06B6D4', icon: 'heart' },
-        { id: 7, nama: 'Pendidikan', slug: 'pendidikan', color: '#84CC16', icon: 'book' },
-        { id: 8, nama: 'Belanja', slug: 'belanja', color: '#F97316', icon: 'shopping-bag' }
-    ]);
-    
-    const [subcategories] = useState<Subcategory[]>([
-        // Akomodasi
-        { id: 1, kategori_id: 1, nama: 'Hotel Bintang 5', slug: 'hotel-bintang-5' },
-        { id: 2, kategori_id: 1, nama: 'Hotel Bintang 4', slug: 'hotel-bintang-4' },
-        { id: 3, kategori_id: 1, nama: 'Hotel Bintang 3', slug: 'hotel-bintang-3' },
-        { id: 4, kategori_id: 1, nama: 'Guest House', slug: 'guest-house' },
-        { id: 5, kategori_id: 1, nama: 'Homestay', slug: 'homestay' },
-        { id: 6, kategori_id: 1, nama: 'Villa', slug: 'villa' },
-        
-        // Wisata  
-        { id: 7, kategori_id: 2, nama: 'Pantai', slug: 'pantai' },
-        { id: 8, kategori_id: 2, nama: 'Gunung', slug: 'gunung' },
-        { id: 9, kategori_id: 2, nama: 'Taman', slug: 'taman' },
-        { id: 10, kategori_id: 2, nama: 'Museum', slug: 'museum' },
-        { id: 11, kategori_id: 2, nama: 'Tempat Bersejarah', slug: 'tempat-bersejarah' },
-        { id: 12, kategori_id: 2, nama: 'Wisata Religi', slug: 'wisata-religi' },
-        
-        // Kuliner
-        { id: 13, kategori_id: 3, nama: 'Restoran Tradisional', slug: 'restoran-tradisional' },
-        { id: 14, kategori_id: 3, nama: 'Restoran Modern', slug: 'restoran-modern' },
-        { id: 15, kategori_id: 3, nama: 'Kafe', slug: 'kafe' },
-        { id: 16, kategori_id: 3, nama: 'Street Food', slug: 'street-food' },
-        { id: 17, kategori_id: 3, nama: 'Bakery', slug: 'bakery' },
-        
-        // Hiburan
-        { id: 18, kategori_id: 4, nama: 'Karaoke', slug: 'karaoke' },
-        { id: 19, kategori_id: 4, nama: 'Cinema', slug: 'cinema' },
-        { id: 20, kategori_id: 4, nama: 'Pub & Bar', slug: 'pub-bar' },
-        { id: 21, kategori_id: 4, nama: 'Olahraga & Rekreasi', slug: 'olahraga-rekreasi' },
-        { id: 22, kategori_id: 4, nama: 'Spa & Massage', slug: 'spa-massage' },
+    // Helper untuk menentukan apakah bisnis saat ini adalah Akomodasi
+    const isAkomodasi = formData.kategori === 'akomodasi';
 
-        // Transportasi
-        { id: 23, kategori_id: 5, nama: 'Taksi', slug: 'taksi' },
-        { id: 24, kategori_id: 5, nama: 'Bus Umum', slug: 'bus-umum' },
-        { id: 25, kategori_id: 5, nama: 'Travel & Shuttle', slug: 'travel-shuttle' },
-        { id: 26, kategori_id: 5, nama: 'Penyewaan Mobil', slug: 'rental-mobil' },
-        { id: 27, kategori_id: 5, nama: 'Penyewaan Motor', slug: 'rental-motor' },
-        { id: 28, kategori_id: 5, nama: 'Pelabuhan & Ferry', slug: 'pelabuhan-ferry' },
-        { id: 29, kategori_id: 5, nama: 'Bandara', slug: 'bandara' },
-
-        // Kesehatan
-        { id: 30, kategori_id: 6, nama: 'Rumah Sakit', slug: 'rumah-sakit' },
-        { id: 31, kategori_id: 6, nama: 'Klinik', slug: 'klinik' },
-        { id: 32, kategori_id: 6, nama: 'Apotek', slug: 'apotek' },
-        { id: 33, kategori_id: 6, nama: 'Laboratorium Medis', slug: 'laboratorium-medis' },
-        { id: 34, kategori_id: 6, nama: 'Puskesmas', slug: 'puskesmas' },
-        { id: 35, kategori_id: 6, nama: 'Dokter Praktek', slug: 'dokter-praktek' },
-
-        // Pendidikan
-        { id: 36, kategori_id: 7, nama: 'Sekolah Dasar', slug: 'sekolah-dasar' },
-        { id: 37, kategori_id: 7, nama: 'Sekolah Menengah', slug: 'sekolah-menengah' },
-        { id: 38, kategori_id: 7, nama: 'Perguruan Tinggi', slug: 'perguruan-tinggi' },
-        { id: 39, kategori_id: 7, nama: 'Lembaga Kursus', slug: 'lembaga-kursus' },
-        { id: 40, kategori_id: 7, nama: 'Bimbingan Belajar', slug: 'bimbingan-belajar' },
-        { id: 41, kategori_id: 7, nama: 'Pesantren', slug: 'pesantren' },
-        
-        // Belanja
-        { id: 42, kategori_id: 8, nama: 'Mall', slug: 'mall' },
-        { id: 43, kategori_id: 8, nama: 'Pasar Tradisional', slug: 'pasar-tradisional' },
-        { id: 44, kategori_id: 8, nama: 'Minimarket', slug: 'minimarket' },
-        { id: 45, kategori_id: 8, nama: 'Supermarket', slug: 'supermarket' },
-        { id: 46, kategori_id: 8, nama: 'Toko Pakaian', slug: 'toko-pakaian' },
-        { id: 47, kategori_id: 8, nama: 'Toko Elektronik', slug: 'toko-elektronik' },
-        { id: 48, kategori_id: 8, nama: 'Toko Buku', slug: 'toko-buku' }
-    ]);
-
-    // Get selected category and filtered subcategories
-    const selectedCategory = categories.find(cat => cat.slug === formData.category);
+    // Filter subkategori berdasarkan kategori yang dipilih
+    const selectedCategory = categories.find(cat => cat.slug === formData.kategori);
     const filteredSubcategories = subcategories.filter(
-        sub => selectedCategory ? sub.kategori_id === selectedCategory.id : false
+        sub => selectedCategory ? sub.category_id === selectedCategory.id : false
     );
+    
+    // Helper untuk membuat URL penuh untuk gambar
+    const getMediaUrl = (path: string | undefined): string => {
+        if (!path) return '';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+        return path.startsWith('http') ? path : `${apiUrl}/uploads/${path}`;
+    };
 
-    // Load existing submission data
+    // --- FETCH DATA SAAT MEMUAT ---
     useEffect(() => {
         const fetchSubmission = async () => {
-        if (!submissionId) return;
-        
-        setIsLoading(true);
-        try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-            const response = await fetch(`${apiUrl}/api/submissions/${submissionId}`);
+            if (!businessId) return;
             
-            if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const result = await response.json();
-            
-            if (result.success) {
-            const submission = result.data;
-            
-            // Map database fields to form fields
-            setFormData({
-                place_name: submission.place_name || '',
-                address: submission.address || '',
-                category: submission.category || '',
-                subcategory: submission.subcategory || '',
-                contact: submission.contact || '',
-                website: submission.website || '',
-                email: submission.email || '',
-                description: submission.description || '',
-                thumbnail_picture: null,
-            });
-            
-            // Set logo preview if exists
-            if (submission.thumbnail_picture) {
-                const imageUrl = submission.thumbnail_picture.startsWith('http') 
-                ? submission.thumbnail_picture 
-                : `http://localhost:5000/uploads/${submission.thumbnail_picture}`;
-                setLogoPreview(imageUrl);
-            }
-
-            // Load existing media if available
+            setIsLoading(true);
             try {
-                const mediaResponse = await fetch(`${apiUrl}/api/submissions/${submissionId}/media`);
-                const mediaResult = await mediaResponse.json();
-                if (mediaResult.success && mediaResult.data) {
-                setExistingMedia(mediaResult.data);
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+                // Gunakan endpoint yang sudah kita buat: GET /api/businesses/:id
+                const response = await fetch(`${apiUrl}/api/businesses/${businessId}`);
+                
+                if (!response.ok) throw new Error('Gagal memuat data bisnis. Periksa ID.');
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const business: BusinessData = result.data;
+
+                    // 1. Set Form Data Utama (Mapping dari DB ke Form State)
+                    setFormData({
+                        nama: business.name || '',
+                        alamat: business.address || '',
+                        // Mapping slug kategori dari DB ke state form
+                        kategori: business.category_slug || '', 
+                        subkategori: business.subcategory_slug || '',
+                        kontak: business.phone || '',
+                        website: business.website || '',
+                        email: business.email || '',
+                        deskripsi: business.description || '',
+                        logo: null, // Logo file harus di-upload ulang, jadi di-set null
+                        latitude: business.latitude?.toString() || '',
+                        longitude: business.longitude?.toString() || '',
+                        // Asumsi jam operasional di-join di business.hours
+                        checkIn: business.hours?.[0]?.open_time?.substring(0, 5) || '14:00',
+                        checkOut: business.hours?.[0]?.close_time?.substring(0, 5) || '12:00'
+                    });
+                    
+                    // 2. Set Media
+                    if (business.thumbnail_image) {
+                        setLogoPreview(getMediaUrl(business.thumbnail_image));
+                    }
+                    if (business.media) setExistingMedia(business.media.map(m => ({
+                        id: m.id, media_path: getMediaUrl(m.file_path), media_type: m.file_type
+                    })));
+
+                    // 3. Set Facilities
+                    if (business.amenities) {
+                        // Mengambil NAME dari fasilitas yang tersedia (dari JOIN)
+                        const selectedNames = business.amenities.map(a => a.name);
+                        setSelectedFacilities(selectedNames);
+                    }
+                    
+                    // 4. Set Room Types
+                    if (business.room_types) {
+                         setRoomTypes(business.room_types.map(room => ({
+                            // Mengonversi ID DB (number) ke string untuk kompatibilitas state ID
+                            id: room.id.toString(), 
+                            name: room.name,
+                            description: room.description,
+                            size: `${room.size_sqm} m²`, // Format kembali ke string yang diharapkan form
+                            capacity: room.max_occupancy,
+                            bedType: room.bed_type,
+                            price: room.base_price,
+                        })));
+                    }
                 }
-            } catch (mediaError) {
-                console.log('No existing media found:', mediaError);
+            } catch (error) {
+                console.error('Error:', error);
+                setErrors({ general: 'Gagal memuat data' });
+            } finally {
+                setIsLoading(false);
             }
-            } else {
-            throw new Error(result.error || 'Failed to fetch submission');
-            }
-        } catch (error) {
-            console.error('Error fetching submission:', error);
-            setSubmitStatus('error');
-            setStatusMessage('Gagal memuat data submission');
-        } finally {
-            setIsLoading(false);
-        }
         };
 
         fetchSubmission();
-    }, [submissionId]);
+    }, [businessId]);
+    // --- AKHIR FETCH DATA ---
 
-    // Handle input changes
-    const handleInputChange = (field: string, value: string) => {
+
+    // --- HANDLERS (Umum) ---
+    const handleInputChange = (field: keyof FormData, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }));
+        if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
         
-        if (errors[field]) {
-        setErrors(prev => ({ ...prev, [field]: '' }));
-        }
-        
-        if (field === 'category' && value !== formData.category) {
-        setFormData(prev => ({ ...prev, subcategory: '' }));
+        // Reset subkategori/relasi jika kategori berubah
+        if (field === 'kategori' && value !== formData.kategori) {
+            setFormData(prev => ({ ...prev, subkategori: '' }));
+            setSelectedFacilities([]);
+            setRoomTypes([]);
         }
     };
 
-    // Handle logo upload
     const handleLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
-
-        if (file.size > 5 * 1024 * 1024) {
-        setErrors(prev => ({ ...prev, logo: "Ukuran file tidak boleh melebihi 5MB" }));
-        return;
-        }
-
-        if (!file.type.match(/^image\/(jpeg|jpg|png|webp)$/)) {
-        setErrors(prev => ({ ...prev, logo: "Format file harus JPG, PNG, atau WebP" }));
-        return;
-        }
-
-        setFormData(prev => ({ ...prev, thumbnail_picture: file }));
+        // ... (Validasi file) ...
+        setFormData(prev => ({ ...prev, logo: file }));
+        setLogoPreview(URL.createObjectURL(file));
         setErrors(prev => ({ ...prev, logo: "" }));
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-        setLogoPreview(e.target?.result as string);
-        };
-        reader.readAsDataURL(file);
     };
 
-    // Handle new media upload
-    const handleNewMediaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleGalleryUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
-        if (!files || files.length === 0) return;
-
-        const newMediaFiles: SubmissionMedia[] = [];
-        const fileErrors: string[] = [];
-
+        if (!files) return;
+        
+        const newMediaFiles: MediaFile[] = [];
         for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const mimeType = file.type;
-        
-        if (file.size > 10 * 1024 * 1024) {
-            fileErrors.push(`Ukuran file "${file.name}" tidak boleh melebihi 10MB.`);
-            continue;
+            const file = files[i];
+            const mediaType = file.type.startsWith('image/') ? 'photo' : 'video';
+            newMediaFiles.push({ file, type: mediaType, preview: URL.createObjectURL(file) });
         }
-
-        let mediaType: 'photo' | 'video';
-        if (mimeType.startsWith('image/')) {
-            mediaType = 'photo';
-        } else if (mimeType.startsWith('video/')) {
-            mediaType = 'video';
-        } else {
-            fileErrors.push(`Format file "${file.name}" tidak didukung.`);
-            continue;
-        }
-        
-        const previewUrl = URL.createObjectURL(file);
-        newMediaFiles.push({ file, type: mediaType, preview: previewUrl });
-        }
-
-        if (fileErrors.length > 0) {
-        setErrors(prev => ({ ...prev, media: fileErrors.join(' ') }));
-        return;
-        }
-
         setNewMedia(prev => [...prev, ...newMediaFiles]);
-        setErrors(prev => ({ ...prev, media: "" }));
     };
 
-    // Remove logo
-    const removeLogo = () => {
-        setFormData(prev => ({ ...prev, thumbnail_picture: null }));
-        setLogoPreview(null);
-        setErrors(prev => ({ ...prev, logo: '' }));
+    const toggleFacility = (facilityId: string) => {
+        setSelectedFacilities(prev => 
+            prev.includes(facilityId) 
+                ? prev.filter(id => id !== facilityId)
+                : [...prev, facilityId]
+        );
     };
 
-    // Remove new media
-    const removeNewMedia = (index: number) => {
-        setNewMedia(prev => prev.filter((_, i) => i !== index));
+    const addRoomType = () => {
+        setRoomTypes(prev => [...prev, {
+            id: `new_room_${Date.now()}`, // Gunakan string ID sementara
+            name: '', description: '', size: '', capacity: 2, bedType: '', price: 0,
+            size_sqm: 0, max_occupancy: 0, base_price: 0, image_url: '', bed_type: ''
+        }]);
     };
 
-    // Remove existing media
-    const removeExistingMedia = (mediaId: number) => {
-        setRemovedMediaIds(prev => [...prev, mediaId]);
-        setExistingMedia(prev => prev.filter(media => media.id !== mediaId));
+    const updateRoomType = (roomId: string | number, field: keyof RoomType, value: any) => {
+        setRoomTypes(prev => prev.map(room => 
+            room.id === roomId ? { ...room, [field]: value } : room
+        ));
     };
 
-    // Form validation
+    const removeRoomType = (roomId: string | number) => {
+        setRoomTypes(prev => prev.filter(room => room.id !== roomId));
+        // NOTE: Untuk PUT, Anda mungkin perlu logic untuk menandai kamar lama yang dihapus jika room.id adalah number
+        // Saat ini, kita asumsikan backend akan menghapus semua room_types yang tidak dikirim dan membuat yang baru.
+    };
+
     const validateForm = (): boolean => {
         const newErrors: Record<string, string> = {};
-
-        if (!formData.place_name.trim()) newErrors.place_name = 'Nama tempat wajib diisi';
-        if (!formData.address.trim()) newErrors.address = 'Alamat wajib diisi';
-        if (!formData.category) newErrors.category = 'Kategori wajib dipilih';
-        if (!formData.subcategory) newErrors.subcategory = 'Subkategori wajib dipilih';
-        if (!formData.contact.trim()) newErrors.contact = 'Kontak wajib diisi';
-        
-        if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-        newErrors.email = 'Format email tidak valid';
-        }
-
-        if (formData.website && !formData.website.match(/^https?:\/\/.+/)) {
-        newErrors.website = 'Website harus dimulai dengan http:// atau https://';
-        }
-
+        if (!formData.nama.trim()) newErrors.nama = 'Nama wajib diisi';
+        // ... [LOGIC VALIDASI LAINNYA] ...
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    // Handle form submission
+
+    // --- FUNGSI SUBMIT UNTUK UPDATE DATA (PUT) ---
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
 
-        if (!validateForm()) {
-        setStatusMessage("Mohon periksa kembali form Anda");
-        setSubmitStatus("error");
-        return;
-        }
+        if (!validateForm()) return;
 
         setIsSaving(true);
-        setSubmitStatus("idle");
-        setStatusMessage("Menyimpan perubahan...");
-
-        const submitData = new FormData();
-
-        // Add form data
-        Object.entries(formData).forEach(([key, value]) => {
-        if (value !== null && key !== 'thumbnail_picture') {
-            submitData.append(key, String(value));
-        }
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+        const data = new FormData();
+        
+        // 1. Append Form Data
+        Object.keys(formData).forEach(key => {
+            const value = formData[key as keyof FormData];
+            if (typeof value === 'string' && key !== 'logo') data.append(key, value);
         });
-
-        // Add logo if changed
-        if (formData.thumbnail_picture) {
-        submitData.append('thumbnail_picture', formData.thumbnail_picture);
+        
+        // 2. Append Relational Data (Facilities & Rooms)
+        if (isAkomodasi) {
+            data.append('selectedFacilities', JSON.stringify(selectedFacilities));
+            // Map roomTypes ke format yang diterima backend:
+            const processedRooms = roomTypes.map(room => ({
+                // Hanya kirim kolom DB yang diperlukan
+                id: typeof room.id === 'number' ? room.id : undefined,
+                name: room.name,
+                description: room.description,
+                size_sqm: parseInt(room.size.replace(/\D/g, '') || '0'), 
+                max_occupancy: room.capacity,
+                bed_type: room.bedType,
+                base_price: room.price,
+            }));
+            data.append('roomTypes', JSON.stringify(processedRooms));
         }
 
-        // Add new media files
-        newMedia.forEach((media) => {
-        submitData.append('media_files', media.file);
-        });
-
-        // Add removed media IDs
-        if (removedMediaIds.length > 0) {
-        submitData.append('removed_media_ids', JSON.stringify(removedMediaIds));
-        }
+        // 3. Append Media (New & Removed)
+        if (formData.logo) data.append('thumbnail_picture', formData.logo);
+        newMedia.forEach(media => data.append('media_files', media.file));
+        if (removedMediaIds.length > 0) data.append('removed_media_ids', JSON.stringify(removedMediaIds));
 
         try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-        const response = await fetch(`${apiUrl}/api/submissions/${submissionId}`, {
-            method: "PUT",
-            body: submitData,
-        });
+            const response = await fetch(`${apiUrl}/api/businesses/${businessId}`, {
+                method: 'PUT',
+                body: data,
+            });
 
-        const result = await response.json();
+            const result = await response.json();
 
-        if (response.ok && result.success) {
-            setSubmitStatus("success");
-            setStatusMessage("Submission berhasil diperbarui!");
-            
-            setTimeout(() => {
-            router.push('/admin/submissions');
-            }, 2000);
-        } else {
-            setSubmitStatus("error");
-            setStatusMessage(result.message || "Gagal memperbarui submission. Silakan coba lagi.");
-        }
+            if (!response.ok) throw new Error(result.error || 'Gagal update');
+
+            setShowSuccess(true);
         } catch (error) {
-        console.error("Update error:", error);
-        setSubmitStatus("error");
-        setStatusMessage("Terjadi kesalahan koneksi. Silakan coba lagi.");
+            console.error('Error:', error);
+            setErrors({ general: (error as Error).message });
         } finally {
-        setIsSaving(false);
+            setIsSaving(false);
         }
     };
+    // -----------------------------------------------------------
+
 
     if (isLoading) {
         return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-            <div className="text-center">
-            <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-            <p className="text-gray-600">Memuat data submission...</p>
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                    <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+                    <p className="text-gray-600">Memuat data...</p>
+                </div>
             </div>
-        </div>
+        );
+    }
+
+    if (showSuccess) {
+        // ... (Success state JSX) ...
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Check className="w-8 h-8 text-blue-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Berhasil Diperbarui!</h2>
+                    <p className="text-gray-600 mb-6">Data bisnis telah berhasil diperbarui.</p>
+                    <button 
+                        onClick={() => router.push('/admin/businesses')}
+                        className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
+                    >
+                        Kembali ke Dashboard
+                    </button>
+                </div>
+            </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 py-12 px-4">
-        <div className="max-w-2xl mx-auto">
-            {/* Header */}
-            <div className="text-center mb-8">
-            <div className="flex items-center justify-center gap-4 mb-4">
-                {/* <button
-                onClick={() => router.back()}
-                className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-                >
-                <ArrowLeft className="w-6 h-6 text-gray-600" />
-                </button> */}
-                <div>
-                <h1 className="text-3xl font-bold text-gray-900">
-                    Edit Submission
-                </h1>
-                <p className="text-lg text-gray-600">
-                    Perbarui informasi bisnis Anda
-                </p>
-                </div>
-            </div>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8 space-y-8">
-            
-            {/* Basic Information Section */}
-            <div className="space-y-6">
-                <div className="border-b border-gray-200 pb-4">
-                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                    <Building2 className="w-5 h-5 text-blue-600" />
-                    Informasi Dasar
-                </h2>
-                <p className="text-sm text-gray-500 mt-1">Data utama bisnis Anda</p>
-                </div>
-
-                {/* Nama Tempat */}
-                <div className="space-y-2">
-                <label htmlFor="place_name" className="block text-sm font-medium text-gray-700">
-                    Nama Tempat/Bisnis *
-                </label>
-                <div className="relative">
-                    <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                    <input
-                    type="text"
-                    id="place_name"
-                    value={formData.place_name}
-                    onChange={(e) => handleInputChange('place_name', e.target.value)}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        errors.place_name ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Contoh: Hotel Grand Batam"
-                    />
-                </div>
-                {errors.place_name && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
-                    {errors.place_name}
-                    </p>
-                )}
-                </div>
-
-                {/* Alamat */}
-                <div className="space-y-2">
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700">
-                    Alamat Lengkap *
-                </label>
-                <div className="relative">
-                    <MapPin className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                    <textarea
-                    id="address"
-                    value={formData.address}
-                    onChange={(e) => handleInputChange('address', e.target.value)}
-                    rows={3}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${
-                        errors.address ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Jl. Hang Tuah No. 123, Batam Center, Kota Batam"
-                    />
-                </div>
-                {errors.address && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
-                    {errors.address}
-                    </p>
-                )}
-                </div>
-
-                {/* Kategori */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                    <label htmlFor="category" className="block text-sm font-medium text-gray-700">
-                    Kategori *
-                    </label>
-                    <div className="relative">
-                    <select
-                        id="category"
-                        value={formData.category}
-                        onChange={(e) => handleInputChange('category', e.target.value)}
-                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none ${
-                        errors.category ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
-                        }`}
-                    >
-                        <option value="">Pilih Kategori</option>
-                        {categories.map((cat) => (
-                        <option key={cat.id} value={cat.slug}>
-                            {cat.nama}
-                        </option>
-                        ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-3 h-5 w-5 text-gray-400 pointer-events-none" />
-                    </div>
-                    {errors.category && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-4 h-4" />
-                        {errors.category}
-                    </p>
-                    )}
-                </div>
-
-                {/* Subkategori */}
-                <div className="space-y-2">
-                    <label htmlFor="subcategory" className="block text-sm font-medium text-gray-700">
-                    Subkategori *
-                    </label>
-                    <div className="relative">
-                    <select
-                        id="subcategory"
-                        value={formData.subcategory}
-                        onChange={(e) => handleInputChange('subcategory', e.target.value)}
-                        disabled={!formData.category}
-                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none disabled:bg-gray-100 disabled:text-gray-400 ${
-                        errors.subcategory ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
-                        }`}
-                    >
-                        <option value="">
-                        {formData.category ? 'Pilih Subkategori' : 'Pilih kategori terlebih dahulu'}
-                        </option>
-                        {filteredSubcategories.map((sub) => (
-                        <option key={sub.id} value={sub.slug}>
-                            {sub.nama}
-                        </option>
-                        ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-3 h-5 w-5 text-gray-400 pointer-events-none" />
-                    </div>
-                    {errors.subcategory && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-4 h-4" />
-                        {errors.subcategory}
-                    </p>
-                    )}
-                </div>
-                </div>
-
-                {/* Category Preview */}
-                {selectedCategory && (
-                <div 
-                    className="p-4 rounded-lg border-l-4 bg-gray-50"
-                    style={{ borderLeftColor: selectedCategory.color }}
-                >
-                    <div className="flex items-center gap-2">
-                    <div 
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-semibold"
-                        style={{ backgroundColor: selectedCategory.color }}
-                    >
-                        {selectedCategory.nama.charAt(0)}
-                    </div>
-                    <div>
-                        <p className="font-medium text-gray-900">{selectedCategory.nama}</p>
-                        {formData.subcategory && (
-                        <p className="text-sm text-gray-600">
-                            {filteredSubcategories.find(sub => sub.slug === formData.subcategory)?.nama}
-                        </p>
-                        )}
-                    </div>
-                    </div>
-                </div>
-                )}
-            </div>
-
-            {/* Contact Information */}
-            <div className="space-y-6">
-                <div className="border-b border-gray-200 pb-4">
-                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                    <Phone className="w-5 h-5 text-green-600" />
-                    Informasi Kontak
-                </h2>
-                <p className="text-sm text-gray-500 mt-1">Cara pelanggan dapat menghubungi Anda</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Kontak */}
-                <div className="space-y-2">
-                    <label htmlFor="contact" className="block text-sm font-medium text-gray-700">
-                    Nomor Telepon *
-                    </label>
-                    <div className="relative">
-                    <Phone className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                    <input
-                        type="tel"
-                        id="contact"
-                        value={formData.contact}
-                        onChange={(e) => handleInputChange('contact', e.target.value)}
-                        className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        errors.contact ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
-                        }`}
-                        placeholder="0778-123456"
-                    />
-                    </div>
-                    {errors.contact && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-4 h-4" />
-                        {errors.contact}
-                    </p>
-                    )}
-                </div>
-
-                {/* Email */}
-                <div className="space-y-2">
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                    Email (Opsional)
-                    </label>
-                    <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                    <input
-                        type="email"
-                        id="email"
-                        value={formData.email}
-                        onChange={(e) => handleInputChange('email', e.target.value)}
-                        className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        errors.email ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
-                        }`}
-                        placeholder="info@bisnis.com"
-                    />
-                    </div>
-                    {errors.email && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-4 h-4" />
-                        {errors.email}
-                    </p>
-                    )}
-                </div>
-                </div>
-
-                {/* Website */}
-                <div className="space-y-2">
-                <label htmlFor="website" className="block text-sm font-medium text-gray-700">
-                    Website (Opsional)
-                </label>
-                <div className="relative">
-                    <Globe className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                    <input
-                    type="url"
-                    id="website"
-                    value={formData.website}
-                    onChange={(e) => handleInputChange('website', e.target.value)}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        errors.website ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="https://www.bisnis.com"
-                    />
-                </div>
-                {errors.website && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
-                    {errors.website}
-                    </p>
-                )}
-                </div>
-            </div>
-
-            {/* Additional Information */}
-            <div className="space-y-6">
-                <div className="border-b border-gray-200 pb-4">
-                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-purple-600" />
-                    Informasi Tambahan
-                </h2>
-                <p className="text-sm text-gray-500 mt-1">Detail dan media untuk memperkuat profil bisnis</p>
-                </div>
-
-                {/* Deskripsi */}
-                <div className="space-y-2">
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                    Deskripsi Bisnis (Opsional)
-                </label>
-                <textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => handleInputChange('description', e.target.value)}
-                    rows={4}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                    placeholder="Ceritakan tentang bisnis Anda, fasilitas yang tersedia, keunggulan, dan hal menarik lainnya..."
-                />
-                <p className="text-xs text-gray-500">
-                    {formData.description.length}/500 karakter
-                </p>
-                </div>
-
-                {/* Logo Upload */}
-                <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                    Logo/Foto Bisnis (Opsional)
-                </label>
-                
-                {!logoPreview ? (
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
-                    <input
-                        type="file"
-                        accept="image/jpeg,image/jpg,image/png,image/webp"
-                        onChange={handleLogoChange}
-                        className="hidden"
-                        id="logo-upload"
-                    />
-                    <label htmlFor="logo-upload" className="cursor-pointer">
-                        <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600 mb-2">
-                        <span className="font-medium text-blue-600">Klik untuk upload</span> atau drag & drop
-                        </p>
-                        <p className="text-sm text-gray-500">PNG, JPG, WebP hingga 5MB</p>
-                    </label>
-                    </div>
-                ) : (
-                    <div className="relative">
-                    <div className="border border-gray-300 rounded-lg p-4 flex items-center gap-4">
-                        <img 
-                        src={logoPreview} 
-                        alt="Preview" 
-                        className="w-16 h-16 object-contain rounded-lg"
-                        />
-                        <div className="flex-1">
-                        <p className="font-medium text-gray-900">
-                            {formData.thumbnail_picture?.name || "Current Image"}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                            {formData.thumbnail_picture && (formData.thumbnail_picture.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
-                        <input
-                            type="file"
-                            accept="image/jpeg,image/jpg,image/png,image/webp"
-                            onChange={handleLogoChange}
-                            className="hidden"
-                            id="logo-change"
-                        />
-                        <label htmlFor="logo-change" className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer">
-                            Ganti gambar
-                        </label>
-                        </div>
-                        <button
-                        type="button"
-                        onClick={removeLogo}
-                        className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                        >
-                        <X className="w-5 h-5" />
-                        </button>
-                    </div>
-                    </div>
-                )}
-                
-                {errors.logo && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
-                    {errors.logo}
-                    </p>
-                )}
-                </div>
-
-                {/* Media Tambahan */}
-                <div className="space-y-4">
-                <label className="block text-sm font-medium text-gray-700">
-                    Foto & Video Lainnya (Opsional)
-                </label>
-
-                {/* Existing Media - dengan preview yang lebih baik */}
-                {existingMedia.length > 0 && (
-                    <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                        <ImageIcon className="w-4 h-4" />
-                        Media Saat Ini ({existingMedia.length} file)
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
-                        {existingMedia.map((media) => (
-                        <div key={media.id} className="relative group rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-300 transition-colors">
-                            {media.media_type === 'photo' ? (
-                            <div className="aspect-square relative">
-                                <img
-                                src={media.media_path.startsWith('http') 
-                                    ? media.media_path 
-                                    : `http://localhost:5000/uploads/${media.media_path}`
-                                }
-                                alt={`Media ${media.id}`}
-                                className="w-full h-full object-cover"
-                                />
-                                <div className="absolute top-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
-                                Foto
-                                </div>
-                            </div>
-                            ) : (
-                            <div className="aspect-square relative bg-gray-900">
-                                <video
-                                src={media.media_path.startsWith('http') 
-                                    ? media.media_path 
-                                    : `http://localhost:5000/uploads/${media.media_path}`
-                                }
-                                className="w-full h-full object-cover"
-                                preload="metadata"
-                                />
-                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                                <VideoIcon className="w-12 h-12 text-white opacity-80" />
-                                </div>
-                                <div className="absolute top-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
-                                Video
-                                </div>
-                            </div>
-                            )}
-                            <button
-                            type="button"
-                            onClick={() => removeExistingMedia(media.id)}
-                            className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-red-600 shadow-lg"
-                            title="Hapus media ini"
+        <div className="min-h-screen bg-gray-50">
+            <div className="bg-white shadow-sm sticky top-0 z-40">
+                <div className="max-w-6xl mx-auto px-4 py-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <button 
+                                onClick={() => router.back()}
+                                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                             >
-                            <X className="w-4 h-4" />
+                                <ArrowLeft className="w-5 h-5" />
                             </button>
-                            {/* Overlay untuk menunjukkan akan dihapus */}
-                            <div className="absolute inset-0 bg-red-500/20 opacity-0 group-hover:opacity-0 transition-opacity" />
-                        </div>
-                        ))}
-                    </div>
-                    </div>
-                )}
-
-                {/* New Media Upload Area */}
-                <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                    <Upload className="w-4 h-4" />
-                    Upload Media Baru
-                    </h4>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 hover:bg-blue-50/30 transition-colors">
-                    <input
-                        type="file"
-                        accept="image/*,video/*"
-                        multiple
-                        onChange={handleNewMediaChange}
-                        className="hidden"
-                        id="media-upload"
-                    />
-                    <label htmlFor="media-upload" className="cursor-pointer">
-                        <div className="flex flex-col items-center">
-                        <div className="bg-blue-100 p-3 rounded-full mb-3">
-                            <Upload className="w-8 h-8 text-blue-600" />
-                        </div>
-                        <p className="text-gray-700 mb-2">
-                            <span className="font-medium text-blue-600">Klik untuk upload</span> atau drag & drop file
-                        </p>
-                        <p className="text-sm text-gray-500 mb-2">
-                            Mendukung: JPG, PNG, WebP, MP4, MOV
-                        </p>
-                        <p className="text-xs text-gray-400">
-                            Maksimal 10MB per file
-                        </p>
-                        </div>
-                    </label>
-                    </div>
-                </div>
-
-                {/* New Media Preview - dengan tombol hapus */}
-                {newMedia.length > 0 && (
-                    <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                        <ImageIcon className="w-4 h-4" />
-                        Media Baru akan Ditambahkan ({newMedia.length} file)
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {newMedia.map((media, index) => (
-                        <div key={index} className="relative group rounded-lg overflow-hidden border-2 border-green-200 hover:border-green-300 transition-colors">
-                            {media.type === 'photo' ? (
-                            <div className="aspect-square relative">
-                                <img
-                                src={media.preview}
-                                alt={`New Media ${index + 1}`}
-                                className="w-full h-full object-cover"
-                                />
-                                <div className="absolute top-2 left-2 bg-green-600 text-white px-2 py-1 rounded text-xs">
-                                Foto Baru
-                                </div>
-                            </div>
-                            ) : (
-                            <div className="aspect-square relative bg-gray-900">
-                                <video 
-                                src={media.preview} 
-                                className="w-full h-full object-cover"
-                                preload="metadata"
-                                />
-                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                                <VideoIcon className="w-12 h-12 text-white opacity-80" />
-                                </div>
-                                <div className="absolute top-2 left-2 bg-green-600 text-white px-2 py-1 rounded text-xs">
-                                Video Baru
-                                </div>
-                            </div>
-                            )}
-                            <button
-                            type="button"
-                            onClick={() => removeNewMedia(index)}
-                            className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-red-600 shadow-lg"
-                            title="Batalkan upload file ini"
-                            >
-                            <X className="w-4 h-4" />
-                            </button>
-                            {/* File info overlay */}
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-2">
-                            <p className="text-xs truncate">
-                                {media.file.name}
-                            </p>
-                            <p className="text-xs text-gray-300">
-                                {(media.file.size / (1024 * 1024)).toFixed(1)} MB
-                            </p>
+                            <div>
+                                <h1 className="text-xl font-bold text-gray-800">Edit Bisnis: {formData.nama}</h1>
+                                <p className="text-sm text-gray-500">Perbarui informasi bisnis Anda (ID: {businessId})</p>
                             </div>
                         </div>
-                        ))}
                     </div>
-                    </div>
-                )}
-
-                {/* Summary info */}
-                {(existingMedia.length > 0 || newMedia.length > 0) && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-                    <div className="flex items-start gap-3">
-                        <div className="bg-blue-100 p-1 rounded">
-                        <FileText className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div className="text-sm">
-                        <p className="font-medium text-blue-900 mb-1">Ringkasan Media:</p>
-                        <ul className="space-y-1 text-blue-700">
-                            {existingMedia.length > 0 && (
-                            <li>• Media saat ini: {existingMedia.length} file</li>
-                            )}
-                            {newMedia.length > 0 && (
-                            <li>• Media baru akan ditambahkan: {newMedia.length} file</li>
-                            )}
-                            {removedMediaIds.length > 0 && (
-                            <li>• Media akan dihapus: {removedMediaIds.length} file</li>
-                            )}
-                        </ul>
-                        </div>
-                    </div>
-                    </div>
-                )}
-
-                {errors.media && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <p className="text-sm text-red-600 flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4" />
-                        {errors.media}
-                    </p>
-                    </div>
-                )}
                 </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="pt-6 border-t border-gray-200">
-                <div className="flex gap-4">
-                <button
-                    type="button"
-                    onClick={() => router.back()}
-                    className="flex-1 py-4 px-6 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-                >
-                    Batal
-                </button>
-                <button
-                    type="submit"
-                    disabled={isSaving}
-                    className={`flex-1 py-4 px-6 rounded-lg font-medium transition-colors ${
-                    isSaving 
-                        ? 'bg-blue-400 cursor-not-allowed' 
-                        : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
-                    } text-white`}
-                >
-                    {isSaving ? (
-                    <span className="flex items-center justify-center gap-2">
-                        <Loader2 className="animate-spin" size={20} />
-                        Menyimpan...
-                    </span>
-                    ) : (
-                    <span className="flex items-center justify-center gap-2">
-                        <Save className="w-5 h-5" />
-                        Simpan Perubahan
-                    </span>
-                    )}
-                </button>
-                </div>
-            </div>
-
-            {/* Status Message */}
-            {submitStatus !== 'idle' && (
-                <div 
-                className={`p-4 rounded-lg flex items-center gap-3 transition-opacity duration-300 ${
-                    submitStatus === 'success' 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-red-100 text-red-800'
-                }`}
-                >
-                {submitStatus === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-                <p className="text-sm font-medium">{statusMessage}</p>
+            {errors.general && (
+                <div className="max-w-6xl mx-auto px-4 mt-4">
+                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5" />
+                        <span><strong>Error!</strong> {errors.general}</span>
+                    </div>
                 </div>
             )}
-            </form>
-        </div>
+
+            <div className="max-w-6xl mx-auto px-4 py-8">
+                <form onSubmit={handleSubmit} className="space-y-8">
+                    
+                    {/* Informasi Dasar */}
+                    <div className="bg-white rounded-2xl shadow-sm p-6">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-6">Informasi Dasar</h2>
+                        
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Nama Bisnis <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.nama}
+                                        onChange={(e) => handleInputChange('nama', e.target.value)}
+                                        className={`w-full p-4 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none ${errors.nama ? 'border-red-300' : 'border-gray-300'}`}
+                                        placeholder="Nama Bisnis"
+                                    />
+                                    {errors.nama && (<p className="text-sm text-red-600 mt-1 flex items-center gap-1"><AlertCircle className="w-4 h-4" />{errors.nama}</p>)}
+                                </div>
+                                
+                                {/* Kategori */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Kategori <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        value={formData.kategori}
+                                        onChange={(e) => handleInputChange('kategori', e.target.value)}
+                                        className={`w-full p-4 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none ${errors.kategori ? 'border-red-300' : 'border-gray-300'}`}
+                                    >
+                                        <option value="">Pilih Kategori</option>
+                                        {categories.map(cat => (<option key={cat.id} value={cat.slug}>{cat.nama}</option>))}
+                                    </select>
+                                    {errors.kategori && (<p className="text-sm text-red-600 mt-1 flex items-center gap-1"><AlertCircle className="w-4 h-4" />{errors.kategori}</p>)}
+                                </div>
+                            </div>
+
+                            {/* Subkategori & Alamat */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Subkategori <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        value={formData.subkategori}
+                                        onChange={(e) => handleInputChange('subkategori', e.target.value)}
+                                        disabled={!formData.kategori}
+                                        className={`w-full p-4 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none ${errors.subkategori ? 'border-red-300' : 'border-gray-300'} disabled:bg-gray-100 disabled:cursor-not-allowed`}
+                                    >
+                                        <option value="">
+                                            {formData.kategori ? 'Pilih Subkategori' : 'Pilih kategori terlebih dahulu'}
+                                        </option>
+                                        {filteredSubcategories.map(sub => (<option key={sub.id} value={sub.slug}>{sub.nama}</option>))}
+                                    </select>
+                                    {errors.subkategori && (<p className="text-sm text-red-600 mt-1 flex items-center gap-1"><AlertCircle className="w-4 h-4" />{errors.subkategori}</p>)}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Alamat Lengkap <span className="text-red-500">*</span></label>
+                                    <textarea
+                                        value={formData.alamat}
+                                        onChange={(e) => handleInputChange('alamat', e.target.value)}
+                                        rows={1}
+                                        placeholder="Jl. Hang Tuah No. 123, Batam Center"
+                                        className={`w-full p-4 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none ${errors.alamat ? 'border-red-300' : 'border-gray-300'}`}
+                                    />
+                                    {errors.alamat && (<p className="text-sm text-red-600 mt-1 flex items-center gap-1"><AlertCircle className="w-4 h-4" />{errors.alamat}</p>)}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Deskripsi</label>
+                                <textarea
+                                    value={formData.deskripsi}
+                                    onChange={(e) => handleInputChange('deskripsi', e.target.value)}
+                                    rows={4}
+                                    placeholder="Ceritakan tentang bisnis Anda..."
+                                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Kontak & Operasional */}
+                    <div className="bg-white rounded-2xl shadow-sm p-6">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-6">Kontak & Operasional</h2>
+                        
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Kontak */}
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Nomor Telepon <span className="text-red-500">*</span></label>
+                                    <div className="relative"><Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <input type="tel" value={formData.kontak} onChange={(e) => handleInputChange('kontak', e.target.value)} placeholder="0778-123456" className={`w-full pl-12 pr-4 py-4 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none ${errors.kontak ? 'border-red-300' : 'border-gray-300'}`} /></div>
+                                    {errors.kontak && (<p className="text-sm text-red-600 mt-1 flex items-center gap-1"><AlertCircle className="w-4 h-4" />{errors.kontak}</p>)}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+                                    <div className="relative"><Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <input type="email" value={formData.email} onChange={(e) => handleInputChange('email', e.target.value)} placeholder="info@bisnis.com" className={`w-full pl-12 pr-4 py-4 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none ${errors.email ? 'border-red-300' : 'border-gray-300'}`} /></div>
+                                    {errors.email && (<p className="text-sm text-red-600 mt-1 flex items-center gap-1"><AlertCircle className="w-4 h-4" />{errors.email}</p>)}
+                                </div>
+                            </div>
+                            
+                            {/* Website & Jam */}
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Website</label>
+                                    <div className="relative"><Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <input type="url" value={formData.website} onChange={(e) => handleInputChange('website', e.target.value)} placeholder="https://www.bisnis.com" className={`w-full pl-12 pr-4 py-4 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none ${errors.website ? 'border-red-300' : 'border-gray-300'}`} /></div>
+                                    {errors.website && (<p className="text-sm text-red-600 mt-1 flex items-center gap-1"><AlertCircle className="w-4 h-4" />{errors.website}</p>)}
+                                </div>
+                                
+                                {isAkomodasi && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">Check-in</label>
+                                            <input type="time" value={formData.checkIn} onChange={(e) => handleInputChange('checkIn', e.target.value)} className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">Check-out</label>
+                                            <input type="time" value={formData.checkOut} onChange={(e) => handleInputChange('checkOut', e.target.value)} className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Media & Gallery */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div className="bg-white rounded-2xl shadow-sm p-6">
+                            <h2 className="text-xl font-bold text-gray-800 mb-4">Logo & Thumbnail</h2>
+                            
+                            {!logoPreview ? (
+                                <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-gray-400 transition-colors">
+                                    <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" id="logo-upload" />
+                                    <label htmlFor="logo-upload" className="cursor-pointer"><Camera className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                                    <h3 className="text-lg font-semibold text-gray-700 mb-2">Ganti Logo</h3>
+                                    <p className="text-gray-500">PNG, JPG hingga 5MB</p></label>
+                                </div>
+                            ) : (
+                                <div className="relative">
+                                    <NextImage src={logoPreview} alt="Logo" width={300} height={100} className="w-full h-32 object-contain border rounded-xl p-4" />
+                                    <button type="button" onClick={() => {setFormData(prev => ({ ...prev, logo: null })); setLogoPreview(null);}} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors"><X className="w-4 h-4" /></button>
+                                </div>
+                            )}
+                            {errors.logo && (<p className="text-sm text-red-600 mt-2 flex items-center gap-1"><AlertCircle className="w-4 h-4" />{errors.logo}</p>)}
+                        </div>
+
+                        <div className="bg-white rounded-2xl shadow-sm p-6">
+                            <h2 className="text-xl font-bold text-gray-800 mb-4">Galeri ({existingMedia.length + newMedia.length} total)</h2>
+                            
+                            <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center mb-4 hover:border-gray-400 transition-colors">
+                                <input type="file" accept="image/*,video/*" multiple onChange={handleGalleryUpload} className="hidden" id="gallery-upload" />
+                                <label htmlFor="gallery-upload" className="cursor-pointer"><Camera className="w-8 h-8 text-gray-400 mx-auto mb-3" />
+                                <h4 className="font-medium text-gray-900 mb-1">Tambah Foto/Video Baru</h4>
+                                <p className="text-xs text-blue-600">Max 10MB per file</p></label>
+                            </div>
+
+                            {(existingMedia.length > 0 || newMedia.length > 0) && (
+                                <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                                    {/* Media Existing */}
+                                    {existingMedia.map((media) => (
+                                        <div key={media.id} className="relative group">
+                                            <NextImage src={media.media_path} alt="" width={64} height={64} className="w-full h-16 object-cover rounded-lg" />
+                                            <button type="button" onClick={() => {setRemovedMediaIds(prev => [...prev, media.id]); setExistingMedia(prev => prev.filter(m => m.id !== media.id));}} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-3 h-3" /></button>
+                                        </div>
+                                    ))}
+                                    {/* Media Baru */}
+                                    {newMedia.map((media, idx) => (
+                                        <div key={idx} className="relative group">
+                                            <NextImage src={media.preview} alt="" width={64} height={64} className="w-full h-16 object-cover rounded-lg" />
+                                            <button type="button" onClick={() => setNewMedia(prev => prev.filter((_, i) => i !== idx))} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-3 h-3" /></button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {removedMediaIds.length > 0 && (<p className="text-xs text-red-500 mt-2">*{removedMediaIds.length} file lama akan dihapus saat disimpan.</p>)}
+                        </div>
+                    </div>
+
+                    {/* Fasilitas - Only for Akomodasi */}
+                    {isAkomodasi && (
+                        <div className="bg-white rounded-2xl shadow-sm p-6">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-4">Fasilitas</h2>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                {availableFacilities.map(facility => {
+                                    const Icon = facility.icon;
+                                    const isSelected = selectedFacilities.includes(facility.id);
+                                    return (
+                                        <button key={facility.id} type="button" onClick={() => toggleFacility(facility.id)} className={`p-4 border-2 rounded-xl transition-colors ${isSelected ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:border-blue-300 text-gray-600'}`}>
+                                            <Icon className={`w-6 h-6 mx-auto mb-2 ${isSelected ? 'text-blue-600' : 'text-gray-500'}`} />
+                                            <span className="text-sm font-medium">{facility.name}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Tipe Kamar - Only for Akomodasi */}
+                    {isAkomodasi && (
+                        <div className="bg-white rounded-2xl shadow-sm p-6">
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-2xl font-bold text-gray-800">Tipe Kamar</h2>
+                                <button type="button" onClick={addRoomType} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors">
+                                    <Plus className="w-4 h-4" />Tambah Kamar
+                                </button>
+                            </div>
+
+                            {roomTypes.length === 0 ? (
+                                <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-xl"><Bed className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                                    <h3 className="text-lg font-medium text-gray-600 mb-2">Belum ada tipe kamar</h3>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {roomTypes.map((room, index) => (
+                                        <div key={room.id} className="border border-gray-200 rounded-xl p-4 space-y-3">
+                                            <div className="flex items-center justify-between"><h3 className="text-lg font-medium text-gray-800">Kamar #{index + 1}</h3>
+                                            <button type="button" onClick={() => removeRoomType(room.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"><X className="w-4 h-4" /></button></div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Nama Kamar *</label>
+                                                <input type="text" value={room.name} onChange={(e) => updateRoomType(room.id, 'name', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Superior Room" /></div>
+                                                
+                                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Ukuran Kamar</label>
+                                                <input type="text" value={room.size} onChange={(e) => updateRoomType(room.id, 'size', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="25 m²" /></div>
+
+                                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Kapasitas Tamu</label>
+                                                <div className="flex items-center gap-2">
+                                                    <button type="button" onClick={() => updateRoomType(room.id, 'capacity', Math.max(1, room.capacity - 1))} className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50"><Minus className="w-4 h-4" /></button>
+                                                    <span className="px-4 py-2 border border-gray-300 rounded-lg text-center min-w-[100px]">{room.capacity} tamu</span>
+                                                    <button type="button" onClick={() => updateRoomType(room.id, 'capacity', room.capacity + 1)} className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50"><Plus className="w-4 h-4" /></button>
+                                                </div></div>
+
+                                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Tipe Kasur</label>
+                                                <select value={room.bedType} onChange={(e) => updateRoomType(room.id, 'bedType', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                    <option value="">Pilih Tipe Kasur</option><option value="single">Single Bed</option><option value="twin">Twin Bed</option><option value="double">Double Bed</option><option value="queen">Queen Bed</option><option value="king">King Bed</option>
+                                                </select></div>
+
+                                                <div><label className="block text-sm font-medium text-gray-700 mb-1">Harga per Malam (IDR)</label>
+                                                <input type="number" value={room.price} onChange={(e) => updateRoomType(room.id, 'price', parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="500000" /></div>
+
+                                                <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Deskripsi Kamar</label>
+                                                <textarea value={room.description} onChange={(e) => updateRoomType(room.id, 'description', e.target.value)} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="Deskripsi singkat tentang kamar ini..." /></div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Lokasi */}
+                    <div className="bg-white rounded-2xl shadow-sm p-6">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-4">Lokasi (GPS)</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
+                            <input type="text" value={formData.latitude} onChange={(e) => handleInputChange('latitude', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="1.1304753" /></div>
+                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
+                            <input type="text" value={formData.longitude} onChange={(e) => handleInputChange('longitude', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="104.0524807" /></div>
+                        </div>
+                    </div>
+
+                    {/* Submit Button */}
+                    <div className="bg-white rounded-2xl shadow-sm p-6">
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm text-gray-600">{errors.general ? errors.general : 'Tekan Simpan untuk menerapkan semua perubahan.'}</p>
+                            <button type="submit" disabled={isSaving} className="px-8 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2">
+                                {isSaving ? (<><Loader2 className="w-5 h-5 animate-spin" />Menyimpan...</>) : (<><Save className="w-5 h-5" />Simpan Perubahan</>)}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
         </div>
     );
 }

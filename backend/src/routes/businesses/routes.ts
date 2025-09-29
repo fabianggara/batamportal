@@ -24,7 +24,7 @@ router.post(
     // Menggunakan upload.fields untuk thumbnail dan media galeri
     upload.fields([
         { name: 'thumbnail_picture', maxCount: 1 }, // Logo Hotel
-        { name: 'media_files', maxCount: 10 }     // Galeri Foto/Video
+        { name: 'media_files', maxCount: 20 }     // Galeri Foto/Video
     ]),
     createBusiness // Memanggil fungsi createBusiness yang sudah dimodifikasi
 );
@@ -42,7 +42,7 @@ router.put(
 // --- ROUTE POST (Upload Media Tambahan) ---
 router.post(
     "/:id/media", 
-    upload.array("media_files", 10), // Bisa upload batch file ke galeri yang sudah ada
+    upload.array("media_files", 50), // Bisa upload batch file ke galeri yang sudah ada
     uploadMedia
 );
 
