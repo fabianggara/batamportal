@@ -9,7 +9,7 @@ interface SearchResult {
   id: number;
   name: string;
   address: string;
-  thumbnail_picture: string | null; // Bisa string atau null
+  thumbnail_image: string | null; // Bisa string atau null
   type: string; // 'hotel', 'wisata', dll.
 }
 
@@ -85,10 +85,10 @@ const SearchResults = () => {
       
       // === TAMBAHKAN KODE DEBUGGING DI SINI ===
       console.log('Data Item yang Diterima:', item);
-      const finalImageUrl = item.thumbnail_picture 
-        ? (item.thumbnail_picture.trim().startsWith("http")
-          ? item.thumbnail_picture.trim()
-          : `http://localhost:5000/uploads/${item.thumbnail_picture.trim()}`)
+      const finalImageUrl = item.thumbnail_image 
+        ? (item.thumbnail_image.trim().startsWith("http")
+          ? item.thumbnail_image.trim()
+          : `http://localhost:5000/uploads/${item.thumbnail_image.trim()}`)
         : null;
       console.log('URL Gambar Final yang Dibuat:', finalImageUrl);
       // =======================================
@@ -98,7 +98,7 @@ const SearchResults = () => {
           
           {/* FOKUS UTAMA: Menampilkan Thumbnail */}
           <div className="relative overflow-hidden">
-            {item.thumbnail_picture ? (
+            {item.thumbnail_image ? (
               <img
                 src={finalImageUrl || ''} // Gunakan URL yang sudah kita proses
                 alt={item.name}

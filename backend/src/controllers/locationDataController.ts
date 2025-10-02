@@ -34,9 +34,9 @@ export const getSubmissionById = async (req: Request, res: Response) => {
         const { id } = req.params;
 
         // Dapatkan data submission
-        const submissionData = await query("SELECT * FROM submissions WHERE id = ?", [id]);
+        const businessData = await query("SELECT * FROM businesses WHERE id = ?", [id]);
 
-        if (submissionData.length === 0) {
+        if (businessData.length === 0) {
             return res.status(404).json({
                 success: false,
                 error: "Submission not found",
@@ -44,9 +44,9 @@ export const getSubmissionById = async (req: Request, res: Response) => {
         }
 
         // Dapatkan media yang terkait
-        const mediaData = await query("SELECT * FROM submission_media WHERE submission_id = ?", [id]);
+        const mediaData = await query("SELECT * FROM business_media WHERE business_id = ?", [id]);
 
-        const submission = submissionData[0];
+        const submission = businessData[0];
         // Tambahkan array media ke objek submission
         (submission as any).media = mediaData;
 
@@ -87,8 +87,8 @@ export const createSubmission = async (req: Request, res: Response) => {
         if (!nama || !alamat) {
             // Hapus file yang sudah diunggah jika validasi gagal
             if (uploadedFiles) {
-                if (uploadedFiles.thumbnail_picture) {
-                    uploadedFiles.thumbnail_picture.forEach(file => unlinkAsync(file.path));
+                if (uploadedFiles.thumbnail_image) {
+                    uploadedFiles.thumbnail_image.forEach(file => unlinkAsync(file.path));
                 }
                 if (uploadedFiles.media_files) {
                     uploadedFiles.media_files.forEach(file => unlinkAsync(file.path));
@@ -102,13 +102,13 @@ export const createSubmission = async (req: Request, res: Response) => {
         }
 
         // Ambil path file logo (thumbnail)
-        const thumbnailFile = uploadedFiles?.thumbnail_picture?.[0];
+        const thumbnailFile = uploadedFiles?.thumbnail_image?.[0];
         const thumbnailPath = thumbnailFile ? thumbnailFile.filename : null;
 
         // 1. Masukkan data ke tabel submissions
         const insertSubmissionQuery = `
             INSERT INTO submissions 
-            (place_name, email, address, category, subcategory, description, contact, website, thumbnail_picture, created_at) 
+            (place_name, email, address, category, subcategory, description, contact, website, thumbnail_image, created_at) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         `;
         const [submissionResult] = await connection.query(insertSubmissionQuery, [
@@ -143,8 +143,8 @@ export const createSubmission = async (req: Request, res: Response) => {
     } catch (error) {
         // Hapus semua file yang diunggah jika terjadi error
         if (uploadedFiles) {
-            if (uploadedFiles.thumbnail_picture) {
-                uploadedFiles.thumbnail_picture.forEach(file => unlinkAsync(file.path));
+            if (uploadedFiles.thumbnail_image) {
+                uploadedFiles.thumbnail_image.forEach(file => unlinkAsync(file.path));
             }
             if (uploadedFiles.media_files) {
                 uploadedFiles.media_files.forEach(file => unlinkAsync(file.path));
@@ -231,7 +231,7 @@ export const updateSubmission = async (req: Request, res: Response) => {
         const updateQuery = `
         UPDATE submissions 
         SET place_name = ?, email = ?, address = ?, category = ?, subcategory = ?, 
-            description = ?, contact = ?, website = ?, thumbnail_picture = ?, updated_at = NOW()
+            description = ?, contact = ?, website = ?, thumbnail_image = ?, updated_at = NOW()
         WHERE id = ?
         `;
 

@@ -69,8 +69,7 @@ export default function RegisterPage() {
         setMessage('');
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-        const endpoint = `${apiUrl}/api/signup`;
-
+        const endpoint = `${apiUrl}/api/auth/signup`;
         try {
         const response = await fetch(endpoint, {
             method: 'POST',

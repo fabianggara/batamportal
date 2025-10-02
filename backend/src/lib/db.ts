@@ -15,6 +15,7 @@ export async function query<T extends RowDataPacket[] = RowDataPacket[]>(
     database: process.env.MYSQL_DATABASE,
     user: process.env.MYSQL_USER,
     password: process.env.MYSQL_PASSWORD,
+    decimalNumbers: true 
   });
 
   try {

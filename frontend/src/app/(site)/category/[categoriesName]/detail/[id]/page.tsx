@@ -52,27 +52,28 @@ import {
         ArrowRight
         } from 'lucide-react';
 
-        interface Submission {
+        interface Item {
         id: number;
-        place_name: string;
-        thumbnail_picture?: string;
-        email?: string;
+        name: string; 
+        slug: string;
+        description: string | null;
         address: string;
-        category?: string;
-        subcategory?: string;
-        description?: string;
-        contact?: string;
-        website?: string;
-        created_at?: string;
+        phone: string | null;
+        email: string | null;
+        website: string | null;
+        category: string | null;
+        subcategory: string | null;
+        thumbnail_image: string | null;
+        average_rating: number; 
+        total_reviews: number;  
+        created_at: string;
         updated_at?: string;
         }
 
         interface MediaItem {
         id: number;
-        submission_id: number;
         media_path: string;
         media_type: 'photo' | 'video';
-        created_at: string;
         }
 
 // Dummy Data
@@ -208,14 +209,14 @@ export default function ItemDetailPage() {
     const params = useParams();
     const itemId = params?.id;
 
-    const [item, setItem] = useState<Submission | null>(null);
+    const [item, setItem] = useState<Item | null>(null);
     const [media, setMedia] = useState<MediaItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
     const [isFavorite, setIsFavorite] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
-    const [relatedItems, setRelatedItems] = useState<Submission[]>([]);
+    const [relatedItems, setRelatedItems] = useState<Item[]>([]);
     const [dummyAccommodationData, setDummyAccommodationData] = useState<any>(null);
     const [mapUrl, setMapUrl] = useState('');
     
@@ -250,8 +251,14 @@ export default function ItemDetailPage() {
         
         try {
             setLoading(true);
+
+            const token = localStorage.getItem('authToken'); 
             
-            const itemRes = await fetch(`http://localhost:5000/api/submissions/${itemId}`);
+            const itemRes = await fetch(`http://localhost:5000/api/businesses/${itemId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}` // <-- Tambahkan baris ini
+                }
+                });
             const itemJson = await itemRes.json();
             
             if (itemJson.success) {
@@ -259,7 +266,7 @@ export default function ItemDetailPage() {
                 
                 // Fetch media
                 try {
-                    const mediaRes = await fetch(`http://localhost:5000/api/submissions/${itemId}/media`);
+                    const mediaRes = await fetch(`http://localhost:5000/api/businesses/${itemId}/media`);
                     const mediaJson = await mediaRes.json();
                     if (mediaJson.success) {
                         setMedia(mediaJson.data);
@@ -272,7 +279,7 @@ export default function ItemDetailPage() {
                 // Fetch related items
                 if (itemJson.data.category) {
                     try {
-                        const relatedRes = await fetch(`http://localhost:5000/api/submissions/category/${encodeURIComponent(itemJson.data.category)}?limit=4&exclude=${itemId}`);
+                        const relatedRes = await fetch(`http://localhost:5000/api/businesses/category/${encodeURIComponent(itemJson.data.category)}?limit=4&exclude=${itemId}`);
                         const relatedJson = await relatedRes.json();
                         if (relatedJson.success) {
                             setRelatedItems(relatedJson.data);
@@ -344,8 +351,8 @@ export default function ItemDetailPage() {
         if (navigator.share && item) {
         try {
             await navigator.share({
-            title: item.place_name,
-            text: item.description,
+            title: item.name,
+            text: item.description || '',
             url: window.location.href
             });
         } catch (err) {
@@ -356,9 +363,9 @@ export default function ItemDetailPage() {
         }
     };
 
-    const handleContact = () => {
-        if (item?.contact) {
-        window.open(`tel:${item.contact}`, '_self');
+    const handlePhone = () => {
+        if (item?.phone) {
+        window.open(`tel:${item.phone}`, '_self');
         }
     };
 
@@ -380,7 +387,7 @@ export default function ItemDetailPage() {
     };
 
     const prevMedia = () => {
-        router.push(`/category/${prevMedia.category}/detail/${prevMedia.id}`);
+        setCurrentMediaIndex((prevIndex) => (prevIndex - 1 + media.length) % media.length);
     };
 
     // const handleBooking = () => {
@@ -400,7 +407,7 @@ export default function ItemDetailPage() {
     const handleBooking = () => {
         const bookingParams = new URLSearchParams({
             itemId: item?.id?.toString() || '',
-            hotelName: item?.place_name || '',
+            hotelName: item?.name || '',
             categoryName: categoriesName,
             checkIn: checkInDate,
             checkOut: checkOutDate,
@@ -454,7 +461,7 @@ export default function ItemDetailPage() {
                 </button>
                 <div>
                     <h1 className="text-xl font-bold text-gray-800 truncate max-w-md">
-                    {item.place_name}
+                    {item.name}
                     </h1>
                     <p className="text-sm text-gray-500">{item.category}</p>
                 </div>
@@ -583,7 +590,7 @@ export default function ItemDetailPage() {
                             ? media[currentMediaIndex].media_path
                             : `http://localhost:5000/uploads/${media[currentMediaIndex]?.media_path}`
                         }
-                        alt={item.place_name}
+                        alt={item.name}
                         fill
                         className="object-cover"
                         />
@@ -613,19 +620,19 @@ export default function ItemDetailPage() {
                         </>
                         )}
                     </div>
-                    ) : item.thumbnail_picture ? (
+                    ) : item.thumbnail_image ? (
                     <div className="relative h-80 overflow-hidden">
                         <Image
-                        src={
-                            item.thumbnail_picture?.startsWith("http")
-                            ? item.thumbnail_picture
-                            : `http://localhost:5000/uploads/${item.thumbnail_picture}`
-                        }
-                        alt={item.place_name}
-                        fill
-                        className="object-cover"
+                            src={
+                            item.thumbnail_image?.startsWith("http")
+                                ? item.thumbnail_image
+                                : `http://localhost:5000/uploads/${item.thumbnail_image}`
+                            }
+                            alt={item.name || `Gambar untuk ${item.id}`} 
+                            fill
+                            className="object-cover"
                         />
-                    </div>
+                        </div>
                     ) : (
                     <div className="h-80 bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
                         <Camera className="w-16 h-16 text-gray-400" />
@@ -657,7 +664,7 @@ export default function ItemDetailPage() {
                                 ? mediaItem.media_path
                                 : `http://localhost:5000/uploads/${mediaItem.media_path}`
                             }
-                            alt={`${item.place_name} ${index + 1}`}
+                            alt={`${item.name} ${index + 1}`}
                             fill
                             className="object-cover"
                         />
@@ -682,7 +689,7 @@ export default function ItemDetailPage() {
                             {item.subcategory && <span>• {item.subcategory}</span>}
                         </div>
                         
-                        <h2 className="text-2xl font-bold text-gray-800 mb-2">{item.place_name}</h2>
+                        <h2 className="text-2xl font-bold text-gray-800 mb-2">{item.name}</h2>
                         
                         <div className="flex items-center gap-2 text-gray-600 mb-4">
                             <MapPin className="w-4 h-4" />
@@ -692,8 +699,8 @@ export default function ItemDetailPage() {
                         
                         <div className="flex items-center gap-1">
                             <Star className="w-5 h-5 text-yellow-400 fill-current" />
-                            <span className="font-semibold">{dummyAccommodationData?.ratings?.overall || 'N/A'}</span>
-                            <span className="text-gray-500 text-sm">({dummyAccommodationData?.ratings?.count || 0})</span>
+                            <span className="font-semibold">{item?.average_rating || 'N/A'}</span>
+                            <span className="text-gray-500 text-sm">({item?.total_reviews || 0} ulasan)</span>
                         </div>
                     </div>
 
@@ -782,7 +789,7 @@ export default function ItemDetailPage() {
                         ></iframe>
                     </div>
                     <p className="text-sm text-gray-600 mb-4">
-                        {item.place_name} berlokasi di {item.address}
+                        {item.name} berlokasi di {item.address}
                     </p>
                     <h4 className="font-semibold text-gray-800 mb-2">Tempat terdekat:</h4>
                     <div className="space-y-2 text-sm text-gray-600">
@@ -808,7 +815,7 @@ export default function ItemDetailPage() {
                                     <div className="w-full bg-gray-200 rounded-full h-2.5">
                                         <div className="bg-yellow-400 h-2.5 rounded-full" style={{ width: `${(value as number) * 20}%` }}></div>
                                     </div>
-                                    <span className="text-sm font-semibold">{value.toFixed(1)}</span>
+                                    <span className="text-sm font-semibold">{(value as number).toFixed(1)}</span>
                                 </div>
                             </div>
                         ))}
@@ -828,14 +835,14 @@ export default function ItemDetailPage() {
                         className="flex gap-3 p-3 border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
                         >
                         <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                            {relatedItem.thumbnail_picture ? (
+                            {relatedItem.thumbnail_image ? (
                             <Image
                                 src={
-                                relatedItem.thumbnail_picture?.startsWith("http")
-                                    ? relatedItem.thumbnail_picture
-                                    : `http://localhost:5000/uploads/${relatedItem.thumbnail_picture}`
+                                relatedItem.thumbnail_image?.startsWith("http")
+                                    ? relatedItem.thumbnail_image
+                                    : `http://localhost:5000/uploads/${relatedItem.thumbnail_image}`
                                 }
-                                alt={relatedItem.place_name}
+                                alt={relatedItem.name}
                                 fill
                                 className="object-cover"
                             />
@@ -846,7 +853,7 @@ export default function ItemDetailPage() {
                             )}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-gray-800 text-sm truncate">{relatedItem.place_name}</h4>
+                            <h4 className="font-semibold text-gray-800 text-sm truncate">{relatedItem.name}</h4>
                             <p className="text-xs text-gray-500 mt-1">{relatedItem.category}</p>
                             <div className="flex items-center gap-1 mt-1">
                             <MapPin className="w-3 h-3 text-gray-400" />
@@ -916,9 +923,9 @@ export default function ItemDetailPage() {
                 <h3 className="text-lg font-bold text-gray-800 mb-4">Informasi Kontak</h3>
                 
                 <div className="space-y-3">
-                    {item.contact && (
+                    {item.phone && (
                     <button
-                        onClick={handleContact}
+                        onClick={handlePhone}
                         className="w-full flex items-center gap-3 p-3 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors text-left"
                     >
                         <div className="bg-blue-100 p-2 rounded-lg">
@@ -926,7 +933,7 @@ export default function ItemDetailPage() {
                         </div>
                         <div>
                         <p className="text-sm text-gray-500">Telepon</p>
-                        <p className="font-semibold text-gray-800">{item.contact}</p>
+                        <p className="font-semibold text-gray-800">{item.phone}</p>
                         </div>
                     </button>
                     )}
@@ -976,8 +983,8 @@ export default function ItemDetailPage() {
                 <div className="grid grid-cols-2 gap-3 mt-4">
                     <button 
                     onClick={() => {
-                        const message = `Halo! Saya tertarik dengan ${item.place_name}. Bisa minta info lebih lanjut?`;
-                        const phoneNumber = item.contact?.replace(/\D/g, '');
+                        const message = `Halo! Saya tertarik dengan ${item.name}. Bisa minta info lebih lanjut?`;
+                        const phoneNumber = item.phone?.replace(/\D/g, '');
                         const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
                         window.open(whatsappUrl, '_blank');
                     }}
@@ -1068,7 +1075,7 @@ export default function ItemDetailPage() {
                 </button>
                 <button
                     onClick={() => {
-                    window.open(`https://wa.me/?text=${encodeURIComponent(`${item.place_name} - ${window.location.href}`)}`, '_blank');
+                    window.open(`https://wa.me/?text=${encodeURIComponent(`${item.name} - ${window.location.href}`)}`, '_blank');
                     setShowShareModal(false);
                     }}
                     className="w-full flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50"

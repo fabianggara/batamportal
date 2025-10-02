@@ -7,23 +7,22 @@ import searchRoutes from './searchRoutes';
 import hotelRoutes from './kategori/hotel/route';
 import recommendationRoutes from './recommendationRoutes';
 import { getHomepageRecommendations } from '../controllers/homepageController';
-
-
-// --- PERBAIKI BARIS INI ---
-// Sebelumnya: import submissionsRoutes from './submissionsRoutes';
-// Seharusnya:
 import submissionsRoutes from './submissions/routes'; 
+import categoryRoutes from './categoryRoutes';
+import businessesRoutes from './businessesRoutes';
 
 const router = Router();
 
 // ... (kode lainnya tidak perlu diubah) ...
 router.use('/auth', authRoutes);
 router.use('/password', passwordRoutes);
-router.use('/submissions', submissionsRoutes);
+router.use('/businesses', submissionsRoutes);
 router.use('/search', searchRoutes);
 router.use('/hotel', hotelRoutes);
 router.use('/recommendations', recommendationRoutes);
 router.get('/homepage-recommendations', getHomepageRecommendations);
+router.use('/categories', categoryRoutes);
+router.use('/businesses', businessesRoutes);
 
 
 export default router;

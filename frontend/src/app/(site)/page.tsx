@@ -32,7 +32,7 @@ import {
 interface RecommendationItem {
   id: number;
   name: string;
-  thumbnail_picture?: string;
+  thumbnail_image?: string;
   address: string;
   category?: string;
   type: string; // 'hotel', 'wisata', dll.
@@ -91,7 +91,7 @@ const fetchHomepageData = async () => {
       label: "Akomodasi", 
       color: "from-blue-500 to-blue-600", 
       count: "120+",
-      link: "/kategori/akomodasi",
+      link: "/category/akomodasi",
       slug: "akomodasi"
     },
     { 
@@ -99,7 +99,7 @@ const fetchHomepageData = async () => {
       label: "Kuliner", 
       color: "from-orange-500 to-red-500", 
       count: "85+",
-      link: "/kategori/kuliner",
+      link: "/category/kuliner",
       slug: "kuliner"
     },
     { 
@@ -107,7 +107,7 @@ const fetchHomepageData = async () => {
       label: "Wisata", 
       color: "from-green-500 to-emerald-600", 
       count: "67+",
-      link: "/kategori/wisata",
+      link: "/category/wisata",
       slug: "wisata"
     },
     { 
@@ -115,7 +115,7 @@ const fetchHomepageData = async () => {
       label: "Hiburan", 
       color: "from-purple-500 to-pink-500", 
       count: "45+",
-      link: "/kategori/hiburan",
+      link: "/category/hiburan",
       slug: "hiburan"
     },
     { 
@@ -123,7 +123,7 @@ const fetchHomepageData = async () => {
       label: "Transportasi", 
       color: "from-indigo-500 to-blue-500", 
       count: "30+",
-      link: "/kategori/transportasi",
+      link: "/category/transportasi",
       slug: "transportasi"
     },
     { 
@@ -131,7 +131,7 @@ const fetchHomepageData = async () => {
       label: "Bisnis", 
       color: "from-gray-600 to-gray-700", 
       count: "28+",
-      link: "/kategori/bisnis",
+      link: "/category/bisnis",
       slug: "bisnis"
     },
   ];
@@ -403,9 +403,9 @@ const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
                     // Ini adalah komponen kartu Anda
                     <div key={`${item.type}-${item.id}`} className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
                       <div className="relative overflow-hidden">
-                        {item.thumbnail_picture ? (
+                        {item.thumbnail_image ? (
                           <img
-                            src={`http://localhost:5000/uploads/${item.thumbnail_picture.trim()}`}
+                            src={`http://localhost:5000/uploads/${item.thumbnail_image.trim()}`}
                             alt={item.name}
                             className="w-full h-48 object-cover"
                           />
@@ -428,7 +428,7 @@ const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
                         </div>
                         <button 
                           className="w-full mt-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all"
-                          onClick={() => router.push(`/itemDetail/${item.type}/${item.id}`)}
+                          onClick={() => router.push(`/category/${item.type}/detail/${item.id}`)}
                         >
                           Lihat Detail
                         </button>
@@ -442,15 +442,15 @@ const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
             {/* --- REKOMENDASI WISATA (SUDAH DILENGKAPI) --- */}
       {recommendations.wisata && recommendations.wisata.length > 0 && (
         <div>
-          <h3 className="text-xl font-bold text-gray-700 mb-4">Destinasi Wisata Populer</h3>
+          <h3 className="text-xl font-bold text-gray-700 mb-4">Kuliner Pilihan</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {recommendations.wisata.map((item: RecommendationItem) => (
               // Kode kartu disalin-tempel ke sini
               <div key={`${item.type}-${item.id}`} className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
                 <div className="relative overflow-hidden">
-                  {item.thumbnail_picture ? (
+                  {item.thumbnail_image ? (
                     <img
-                      src={`http://localhost:5000/uploads/${item.thumbnail_picture.trim()}`}
+                      src={`http://localhost:5000/uploads/${item.thumbnail_image.trim()}`}
                       alt={item.name}
                       className="w-full h-48 object-cover"
                     />
@@ -473,7 +473,7 @@ const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
                   </div>
                   <button 
                     className="w-full mt-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all"
-                    onClick={() => router.push(`/itemDetail/${item.type}/${item.id}`)}
+                    onClick={() => router.push(`/category/${item.type}/detail/${item.id}`)}
                   >
                     Lihat Detail
                   </button>
@@ -487,14 +487,14 @@ const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
             {/* --- REKOMENDASI KULINER (SUDAH DILENGKAPI) --- */}
       {recommendations.kuliner && recommendations.kuliner.length > 0 && (
         <div>
-          <h3 className="text-xl font-bold text-gray-700 mb-4">Kuliner Pilihan</h3>
+          <h3 className="text-xl font-bold text-gray-700 mb-4">Destinasi Wisata Populer</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {recommendations.kuliner.map((item: RecommendationItem) => (
               <div key={`${item.type}-${item.id}`} className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
                 <div className="relative overflow-hidden">
-                  {item.thumbnail_picture ? (
+                  {item.thumbnail_image ? (
                     <img
-                      src={`http://localhost:5000/uploads/${item.thumbnail_picture.trim()}`}
+                      src={`http://localhost:5000/uploads/${item.thumbnail_image.trim()}`}
                       alt={item.name}
                       className="w-full h-48 object-cover"
                     />
@@ -517,7 +517,7 @@ const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
                   </div>
                   <button 
                     className="w-full mt-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all"
-                    onClick={() => router.push(`/itemDetail/${item.type}/${item.id}`)}
+                    onClick={() => router.push(`/category/${item.type}/detail/${item.id}`)}
                   >
                     Lihat Detail
                   </button>
