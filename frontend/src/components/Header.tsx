@@ -12,11 +12,14 @@ import {
   LogOut,
   ChevronDown,
   UserPlus,
+  Crown, // Icon untuk Premium/Subscription
+  Shield
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const Header = () => {
-  const { user, logout } = useAuth();
+  // Ambil user, logout, dan isAdmin dari useAuth
+  const { user, logout, isAdmin } = useAuth(); 
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [notificationCount, setNotificationCount] = useState(3);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -48,6 +51,20 @@ const Header = () => {
     setNotificationCount(0);
   };
 
+  // Fungsi utilitas untuk menentukan tampilan subscription status
+  const getSubscriptionDisplay = (status: string | null) => {
+    if (status === 'PREMIUM') {
+      return { text: 'Premium', color: 'text-yellow-500', icon: Crown };
+    }
+    if (status === 'BASIC') {
+      return { text: 'Basic', color: 'text-green-500', icon: Crown };
+    }
+    return null;
+  };
+
+  const subscriptionDisplay = user ? getSubscriptionDisplay(user.subscription_status) : null;
+
+
   return (
     <header className="bg-white shadow-sm p-4 sticky top-0 z-50">
       <div className="max-w-6xl mx-auto flex items-center justify-between">
@@ -75,6 +92,17 @@ const Header = () => {
                   </span>
                 )}
               </button>
+              
+              {/* ADMIN LINK (Kondisional) */}
+              {isAdmin() && (
+                  <Link
+                      href="/admin"
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors border border-blue-200"
+                      title="Admin Dashboard"
+                  >
+                      <Shield className="w-6 h-6" />
+                  </Link>
+              )}
 
               {/* Settings */}
               <Link
@@ -93,7 +121,8 @@ const Header = () => {
                 >
                   <div className="flex flex-col text-right">
                     <span className="text-sm font-medium text-gray-800">
-                      {user.name || user.name || 'User'}
+                      {/* Gunakan user.name, fallback ke user.email jika null */}
+                      {user.name || user.email.split('@')[0] || 'User'} 
                     </span>
                     <span className="text-xs text-gray-500">{user.email}</span>
                   </div>
@@ -140,14 +169,24 @@ const Header = () => {
                         </div>
                         <div>
                           <div className="font-semibold text-gray-800">
-                            {user.name || user.name || 'User'}
+                            {user.name || user.email.split('@')[0] || 'User'}
                           </div>
                           <div className="text-sm text-gray-500">
                             {user.email}
                           </div>
-                          <div className="text-xs text-green-600 font-medium">
-                            ● Online
-                          </div>
+                          {/* Tampilkan Status Langganan di Dropdown */}
+                          {subscriptionDisplay ? (
+                            <div className={`flex items-center gap-1 mt-1 ${subscriptionDisplay.color}`}>
+                              <subscriptionDisplay.icon className="w-3 h-3" />
+                              <span className="text-xs font-medium">
+                                {subscriptionDisplay.text}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-400 font-medium mt-1">
+                              Akun Gratis
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -162,6 +201,19 @@ const Header = () => {
                         <User className="w-5 h-5 text-gray-500" />
                         <span>Profil Saya</span>
                       </Link>
+                      
+                      {/* ADMIN DASHBOARD LINK di Dropdown (Kondisional) */}
+                      {isAdmin() && (
+                          <Link
+                              href="/admin"
+                              className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 text-blue-600 transition-colors font-medium border-t border-b border-blue-100 my-1"
+                              onClick={() => setShowProfileDropdown(false)}
+                          >
+                              <Shield className="w-5 h-5" />
+                              <span>Admin Dashboard</span>
+                          </Link>
+                      )}
+
 
                       <Link
                         href="/settings"

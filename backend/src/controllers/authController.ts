@@ -10,9 +10,9 @@ export const login = async (req: Request, res: Response) => {
     try {
         const { email, password } = req.body;
 
-        // 1. Cari user di DB
+        // 1. Cari user di DB - AMBIL SEMUA KOLOM PROFIL BARU
         const users: any = await query(
-        "SELECT id, email, password, role, name FROM users WHERE email = ?",
+        "SELECT id, email, password, role, name, profile_picture, bio, subscription_status FROM users WHERE email = ?",
         [email]
         );
 
@@ -48,6 +48,7 @@ export const login = async (req: Request, res: Response) => {
 
         delete user.password;
 
+        // Response dikembalikan dengan user yang lengkap
         return res.json({ success: true, user });
     } catch (error) {
         console.error("Login Error:", error);
@@ -65,7 +66,7 @@ export const login = async (req: Request, res: Response) => {
     }
     };
 
-    // 🔥 Tambahan baru: ambil profil user yang sedang login
+    // 🔥 Ambil profil user yang sedang login
     export const me = async (req: Request, res: Response) => {
     try {
         const token = req.cookies.session_token;
@@ -78,9 +79,9 @@ export const login = async (req: Request, res: Response) => {
         // verifikasi token
         const decoded: any = jwt.verify(token, JWT_SECRET);
 
-        // ambil user dari DB
+        // ambil user dari DB - AMBIL SEMUA KOLOM PROFIL BARU
         const users: any = await query(
-        "SELECT id, email, role, name FROM users WHERE id = ?",
+        "SELECT id, email, role, name, profile_picture, bio, subscription_status FROM users WHERE id = ?",
         [decoded.userId]
         );
 
@@ -91,8 +92,7 @@ export const login = async (req: Request, res: Response) => {
         }
 
         const user = users[0];
-        delete user.password;
-
+        // Response dikembalikan dengan user yang lengkap
         return res.json(user);
     } catch (error) {
         console.error("Me Error:", error);

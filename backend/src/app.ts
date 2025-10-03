@@ -53,7 +53,7 @@ app.use('/api', (req, res, next) => {
 // Routes
 app.use('/api/signup', signupRouter);
 app.use("/api/login", loginRouter);
-app.use("/api/auth/me", meRoutes);
+app.use("/api/me", meRoutes);
 app.use("/api/password", forgotPassRoutes);
 
 app.use('/api/businesses', businessesRouter);

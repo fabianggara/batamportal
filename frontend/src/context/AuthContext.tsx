@@ -1,101 +1,133 @@
-// src/context/AuthContext.tsx
+// src/app/context/AuthContext.tsx
 'use client';
 
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-// Perbarui tipe User untuk menyertakan id dan role
-interface User {
-  id: number; // atau string, sesuaikan dengan tipe data di DB Anda
-  email: string;
-  role: string;
-  name: string;                // nama user
-  profile_picture?: string;    // foto profil (nullable)
-  bio?: string;                // bio (opsional)
+// TIPE DATA PENGGUNA YANG DISESUAIKAN DENGAN SKEMA BARU
+export interface User {
+    id: number; // PRIMARY KEY
+    email: string;
+    role: 'ADMIN' | 'USER'; // Sesuai dengan CHECK (role IN (...))
+    name: string | null;
+    profile_picture: string | null;
+    bio: string | null;
+    subscription_status: 'NONE' | 'BASIC' | 'PREMIUM'; // Sesuai dengan ENUM
 }
 
 interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => Promise<void>;
-  refresh: () => Promise<void>;
+    user: User | null;
+    isAuthenticated: boolean; // Tambahan untuk mempermudah pengecekan
+    login: (userData: User) => void;
+    logout: () => void;
+    // Fungsi bantuan: memeriksa role pengguna
+    isAdmin: () => boolean; 
+    // Fungsi bantuan: memeriksa status langganan
+    isSubscribed: () => boolean;
 }
 
+// Tambahkan isAuthenticated ke tipe konteks
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+    // Di inisialisasi sebagai null, akan diisi oleh fetch /me saat mount
+    const [user, setUser] = useState<User | null>(null); 
+    const [loading, setLoading] = useState(true); // Tambahkan state loading
+    const router = useRouter();
 
-  // API URL ambil dari .env atau fallback ke localhost
-  const API = process.env.NEXT_PUBLIC_API_URL;
-
-  // refresh session (cek apakah masih login)
-  const refresh = async () => {
-    try {
-      const res = await fetch(`${API}/api/auth/me`, { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data || null);
-      } else {
-        setUser(null);
-      }
-    } catch (error) {
-      console.error("Failed to refresh session", error);
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+    // Fungsi untuk memuat data pengguna saat aplikasi dimuat (menggunakan cookie/session)
     useEffect(() => {
-    refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+        const checkAuthStatus = async () => {
+            setLoading(true);
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+            const endpoint = `${apiUrl}/api/me`; 
+            
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'GET',
+                    credentials: 'include',
+                });
 
-  // login ke backend
-  const login = async (email: string, password: string) => {
-    try {
-      const res = await fetch(`${API}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // penting untuk cookie
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        await refresh(); // ambil ulang user setelah login
-        return { success: true };
-      }
-      return { success: false, error: data?.error || 'Login failed' };
-    } catch (error) {
-      return { success: false, error: 'Network error' };
+                if (response.ok) {
+                    const result = await response.json();
+                    
+                    // PERBAIKAN UTAMA: ENDPOINT /me MENGEMBALIKAN OBJEK USER LANGSUNG
+                    // user = { id: 1, name: 'Saidi', ... }
+                    setUser(result as User); // <-- Langsung set hasil JSON sebagai user
+                    
+                } else {
+                    // Jika respons 401/404, artinya user tidak terautentikasi
+                    setUser(null);
+                }
+            } catch (error) {
+                // ... (error handling)
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        checkAuthStatus();
+    }, []);
+    // CATATAN: Dengan penambahan useEffect ini, kita telah menambahkan fungsi auto-login melalui endpoint /me.
+    // Ini adalah praktik umum untuk Next.js/React yang menggunakan cookies.
+
+    const login = (userData: User) => {
+        setUser(userData);
+    };
+
+    const logout = async () => {
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+            await fetch(`${apiUrl}/api/logout`, {
+                method: 'POST',
+                credentials: 'include',
+            });
+        } catch (error) {
+            console.error('Failed to logout on server', error);
+            // Tetap lanjutkan logout meskipun server gagal
+        } finally {
+            setUser(null);
+            router.push('/login');
+        }
+    };
+
+    // Fungsi bantuan untuk pengecekan role
+    const isAdmin = () => {
+        return user?.role === 'ADMIN';
+    };
+
+    // Fungsi bantuan untuk pengecekan status langganan (BASIC atau PREMIUM dianggap subscribed)
+    const isSubscribed = () => {
+        return user?.subscription_status === 'BASIC' || user?.subscription_status === 'PREMIUM';
+    };
+
+    // Objek value yang akan disediakan oleh Context
+    const contextValue: AuthContextType = {
+        user,
+        isAuthenticated: !!user, // Menjadi true jika user tidak null
+        login,
+        logout,
+        isAdmin,
+        isSubscribed,
+    };
+
+    if (loading) {
+        // Tampilkan Loading State atau spinner saat proses checkAuthStatus berjalan
+        return <div>Loading Authentication...</div>;
+        // ATAU return <LoadingScreen />;
     }
-  };
 
-  // logout user
-  const logout = async () => {
-    try {
-      await fetch(`${API}/api/auth/logout`, { method: 'POST', credentials: 'include' });
-    } catch (error) {
-      console.error("Failed to logout on server", error);
-    } finally {
-      setUser(null);
-      window.location.href = '/login';
-    }
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refresh }}>
-      {children}
-    </AuthContext.Provider>
-  );
+    return (
+        <AuthContext.Provider value={contextValue}>
+            {children}
+        </AuthContext.Provider>
+    );
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+    const context = useContext(AuthContext);
+    if (context === undefined) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
 };

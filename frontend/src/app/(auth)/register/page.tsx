@@ -50,6 +50,7 @@ export default function RegisterPage() {
         return false;
         }
         if (formData.password.length < 6) {
+        // PERHATIAN: Validasi minimal karakter Anda adalah 6, pastikan backend juga mendukung ini atau lebih
         setMessage('Password minimal 6 karakter');
         return false;
         }
@@ -69,13 +70,14 @@ export default function RegisterPage() {
         setMessage('');
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-        const endpoint = `${apiUrl}/api/signup`;
+        const endpoint = `${apiUrl}/api/signup`; // Endpoint pendaftaran
 
         try {
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+            // HANYA MENGIRIM DATA WAJIB KE BACKEND
             name: formData.name,
             email: formData.email,
             password: formData.password

@@ -1,15 +1,15 @@
 'use client'
 
 import Link from "next/link";
+import Image from "next/image"; // Tambahkan import Image
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { 
     Home, 
     Users, 
     Star,
-    Building,
     Building2,
-    MapPin,
+    // MapPin,
     ChevronLeft, 
     ChevronRight,
     BarChart3,
@@ -18,15 +18,32 @@ import {
     Menu,
     X,
     Settings,
-    Briefcase,
     HandCoins,
     TreePine
 } from "lucide-react";
+
+// Import useAuth
+import { useAuth } from "@/context/AuthContext";
 
 export default function Sidebar() {
     const pathname = usePathname();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+    // Ambil data user dan fungsi logout dari context
+    const { user, logout } = useAuth(); 
+
+    // Pastikan kita punya data user sebelum merender bagian profil
+    const adminName = user?.name || (user?.email ? user.email.split('@')[0] : 'Admin');
+    const adminEmail = user?.email || 'admin@portal.com';
+    const adminProfilePicture = user?.profile_picture;
+    
+    // Fungsi untuk Logout
+    const handleLogout = async () => {
+        if (window.confirm('Apakah Anda yakin ingin keluar dari Panel Admin?')) {
+            await logout();
+        }
+    };
 
     const menuItems = [
         {
@@ -151,16 +168,28 @@ export default function Sidebar() {
                     </div>
                 </div>
 
-                {/* Admin Profile */}
+                {/* Admin Profile - MENGGUNAKAN DATA USER NYATA */}
                 <div className="px-4 py-2 border-b border-gray-700">
                     <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
-                        <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
-                            <User className="w-5 h-5 text-white" />
+                        {/* Avatar */}
+                        <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center overflow-hidden">
+                            {adminProfilePicture ? (
+                                <Image
+                                    src={adminProfilePicture}
+                                    alt="Admin Profile"
+                                    width={40}
+                                    height={40}
+                                    className="rounded-full object-cover"
+                                />
+                            ) : (
+                                <User className="w-5 h-5 text-white" />
+                            )}
                         </div>
+                        
                         {!isCollapsed && (
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">Admin User</p>
-                                <p className="text-xs text-gray-400 truncate">admin@batamportal.com</p>
+                                <p className="text-sm font-medium truncate">{adminName}</p>
+                                <p className="text-xs text-gray-400 truncate">{adminEmail}</p>
                                 <div className="flex items-center gap-1 mt-1">
                                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                                     <span className="text-xs text-green-400">Online</span>
@@ -254,6 +283,7 @@ export default function Sidebar() {
                 {/* Footer */}
                 <div className="p-4 border-t border-gray-700">
                     <button
+                        onClick={handleLogout} // Hubungkan ke fungsi logout
                         className={`
                             w-full flex items-center gap-3 p-3 text-gray-400 hover:text-red-400 hover:bg-gray-700/50 rounded-xl transition-all duration-200
                             ${isCollapsed ? 'justify-center' : ''}

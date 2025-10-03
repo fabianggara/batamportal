@@ -1,10 +1,11 @@
-// src/app/login/page.tsx
+// src/app/(auth)/login/page.tsx
 'use client';
 
 import Link from 'next/link';
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/app/context/AuthContext';
+// Pastikan path ini benar berdasarkan lokasi file
+import { useAuth } from '@/app/context/AuthContext'; 
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
@@ -15,7 +16,8 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const router = useRouter();
-  const { login } = useAuth();
+  // Menggunakan context login
+  const { login } = useAuth(); 
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -37,16 +39,18 @@ export default function LoginPage() {
 
       if (response.ok) {
         setMessage('Login berhasil! Mengalihkan...');
-        const loggedInUser = result.user;
+        const loggedInUser = result.user; // Harusnya berisi id, email, role, dan name dari backend
 
         if (!loggedInUser) {
           setMessage('Error: Data pengguna tidak ditemukan setelah login.');
           setIsLoading(false);
           return;
         }
+        
+        // Memanggil fungsi login dengan data pengguna lengkap
+        login(loggedInUser); 
 
-        login(loggedInUser);
-
+        // Pengalihan berdasarkan role
         if (loggedInUser.role === 'ADMIN') {
           router.push('/admin');
         } else {
@@ -65,7 +69,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Welcome Section */}
+      {/* ... (JSX untuk bagian Welcome Section - TIDAK BERUBAH) ... */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 p-12 items-center justify-center relative overflow-hidden">
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10">
