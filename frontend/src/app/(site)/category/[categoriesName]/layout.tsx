@@ -7,14 +7,13 @@ interface Props {
     params: { categoriesName: string };
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-    const categoryName = params.categoriesName;
-    const capitalizedCategory = categoryName.charAt(0).toUpperCase() + categoryName.slice(1);
+export async function generateMetadata({ params: { categoriesName } }: Props): Promise<Metadata> {
+    const capitalizedCategory = categoriesName.charAt(0).toUpperCase() + categoriesName.slice(1);
     
     return {
         title: `${capitalizedCategory} - BatamPortal`,
-        description: `Temukan ${categoryName} terbaik di Batam. Daftar lengkap dengan review, harga, dan informasi detail.`,
-        keywords: `${categoryName}, batam, ${categoryName} batam, wisata batam`,
+        description: `Temukan ${categoriesName} terbaik di Batam. Daftar lengkap dengan review, harga, dan informasi detail.`,
+        keywords: `${categoriesName}, batam, ${categoriesName} batam, wisata batam`,
     };
 }
 

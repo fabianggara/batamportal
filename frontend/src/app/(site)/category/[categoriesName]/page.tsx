@@ -3,117 +3,88 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Image from "next/image";
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
-    MapPin, Star, ChevronDown, Search, Filter, ArrowLeft, X, TrendingUp, StarHalf, Award
+    MapPin, Star, ChevronDown, Search, Filter, ArrowLeft, X,
+    TrendingUp, Award
 } from 'lucide-react';
 
-// --- INTERFACE (Disesuaikan dengan View business_with_category) ---
-
-interface Business {
+// --- Tipe Data Baru (sesuai database Anda) ---
+interface BusinessItem {
     id: number;
-    name: string; // Dari businesses.name
+    name: string;
     address: string;
-    // Dari cache rating di tabel businesses
-    average_rating: number | string | null; 
-    total_reviews: number | null; 
-    // Dari View
-    category_name: string | null; 
-    subcategory_name: string | null; 
-    // Dari businesses
-    thumbnail_image: string | null; 
-    description: string | null;
-    base_price: number | null; // Asumsi harga termurah dari subquery/cache/room_types
-    // Asumsi: Kita hanya menggunakan starRating untuk filter, tidak di DB.
+    average_rating: number;
+    total_reviews: number;
+    star_rating: number;
+    thumbnail_image: string;
+    description: string;
+    subcategory_slug?: string;
+    price: number; // Pastikan API mengirimkan ini
 }
 
-interface Filters {
-    starRating: string[];
-    reviewScore: string[];
-    priceRange: string[];
+interface Subcategory {
+    slug: string;
+    name: string;
 }
-
-// Data Dummy Subkategori (IDEALNYA DIAMBIL DARI /api/subcategories?slug=X)
-const DUMMY_SUB_CATEGORIES: Record<string, { value: string; label: string }[]> = {
-    akomodasi: [
-        { value: 'hotel-bintang-5', label: 'Hotel Bintang 5' },
-        { value: 'hotel-bintang-4', label: 'Hotel Bintang 4' },
-        { value: 'villa', label: 'Villa' },
-        { value: 'homestay', label: 'Homestay' },
-    ],
-    kuliner: [
-        { value: 'restoran', label: 'Restoran' },
-        { value: 'kafe', label: 'Kafe' },
-        { value: 'makanan-lokal', label: 'Makanan Lokal' },
-    ],
-    // Tambahkan kategori lain sesuai seed data Anda
-};
-
-const categoryTitles: Record<string, string> = {
-    akomodasi: 'Akomodasi', kuliner: 'Kuliner', wisata: 'Wisata',
-    hiburan: 'Hiburan', transportasi: 'Transportasi', bisnis: 'Bisnis'
-};
-// -------------------------------------------------------------------
+// --- Akhir Tipe Data ---
 
 export default function CategoryListPage() {
     const params = useParams();
     const router = useRouter();
     const categorySlug = params.categoriesName as string;
 
-    const [items, setItems] = useState<Business[]>([]);
+    // --- State Management ---
+    const [items, setItems] = useState<BusinessItem[]>([]);
+    const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+    const [categoryTitle, setCategoryTitle] = useState(categoryName);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    // State untuk filter & sort
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSubcategory, setSelectedSubcategory] = useState('all');
-    const [sortOption, setSortOption] = useState('rating'); // Default sort: rating tertinggi
-    const [filters, setFilters] = useState<Filters>({
-        starRating: [],
-        reviewScore: [],
-        priceRange: []
+    const [sortOption, setSortOption] = useState('terbaru');
+    const [filters, setFilters] = useState({
+        starRating: [] as string[], // Ganti nama ini
+        reviewScore: [] as string[],
     });
-    const [isLoading, setIsLoading] = useState(true);
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-    const currentCategoryTitle = categoryTitles[categorySlug] || categorySlug;
-
-    // --- FETCH DATA DARI BACKEND ---
+    // --- Pengambilan Data dari API ---
     useEffect(() => {
-        const fetchItems = async () => {
-            if (!categorySlug) return;
+        if (!categoryName) return;
 
+        const fetchData = async () => {
             setIsLoading(true);
+            setError(null);
             try {
-                // Endpoint untuk mengambil semua bisnis di kategori ini
-                // Asumsi backend memiliki endpoint: GET /api/businesses?category_slug=akomodasi
-                const response = await fetch(`${API_URL}/api/businesses?category_slug=${categorySlug}`);
+                const res = await fetch(`http://localhost:5000/api/businesses/category/${categoryName}`);
+                if (!res.ok) throw new Error('Gagal mengambil data dari server');
                 
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch ${categorySlug} data.`);
-                }
-                
-                const result = await response.json();
-                
-                if (result.success && Array.isArray(result.data)) {
-                    setItems(result.data as Business[]);
+                const response = await res.json();
+                if (response.success) {
+                    setItems(response.data.items || []);
+                    setSubcategories(response.data.subcategories || []);
+                    setCategoryTitle(response.data.category_title || categoryName);
                 } else {
-                    setItems([]);
+                    throw new Error(response.message || 'Gagal memuat data kategori');
                 }
-            } catch (error) {
-                console.error('Error fetching items:', error);
-                setItems([]);
+            } catch (err: any) {
+                setError(err.message);
             } finally {
                 setIsLoading(false);
             }
         };
 
-        fetchItems();
-    }, [categorySlug]);
-    // --------------------------------
+        fetchData();
+    }, [categoryName]);
 
-    const formatPrice = (price: number | null | undefined) => {
-        if (!price || price === 0) return 'Gratis';
+    // --- Helper Functions (Lengkap dari kode lama Anda) ---
+    const formatPrice = (price: number) => {
+        if (price === 0) return 'Gratis';
         return new Intl.NumberFormat('id-ID', {
-            style: 'currency',
-            currency: 'IDR',
-            minimumFractionDigits: 0
+            style: 'currency', currency: 'IDR', minimumFractionDigits: 0
         }).format(price);
     };
 
@@ -124,90 +95,62 @@ export default function CategoryListPage() {
         if (rating >= 7.0) return 'Good';
         return 'Fair';
     };
-    
-    // Konversi numeric rating (misal: 4.5) ke label (misal: Excellent)
-    const getRatingLabel = (rating: number | string | null): string => {
-        const num = parseFloat(rating as string) || 0;
-        if (num === 0) return 'N/A';
-        if (num >= 9.0) return 'Exceptional';
-        if (num >= 8.5) return 'Excellent';
-        if (num >= 8.0) return 'Very Good';
-        if (num >= 7.0) return 'Very Good';
-        return 'Good';
-    };
 
-    const renderStars = (starRating: number) => {
+    const renderStars = (averageRating?: number) => {
+        if (!averageRating) return null;
         return (
             <div className="flex items-center gap-1">
                 {[...Array(5)].map((_, i) => (
-                    <Star
-                        key={i}
-                        className={`w-4 h-4 ${i < starRating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
-                    />
+                    <Star key={i} className={`w-4 h-4 ${i < averageRating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} />
                 ))}
             </div>
         );
     };
 
-    const handleFilterChange = (type: keyof Filters, value: string) => {
-        setFilters(prevFilters => {
-            const newFilters = { ...prevFilters };
-            if (newFilters[type].includes(value)) {
-                newFilters[type] = newFilters[type].filter(item => item !== value);
-            } else {
-                newFilters[type] = [...newFilters[type], value];
-            }
-            return newFilters;
-        });
+    // --- Fungsi Handler (Lengkap dari kode lama Anda) ---
+    const handleFilterChange = (type: keyof typeof filters, value: string) => {
+        setFilters(prev => ({
+            ...prev,
+            [type]: prev[type].includes(value)
+                ? prev[type].filter(item => item !== value)
+                : [...prev[type], value]
+        }));
     };
 
     const handleClearFilters = () => {
-        setFilters({ starRating: [], reviewScore: [], priceRange: [] });
+        setFilters({ starRating: [], reviewScore: [] });
         setSelectedSubcategory('all');
         setSearchTerm('');
     };
-
-    const handleItemClick = (item: Business) => {
-        // Navigate to: /category/[categoriesName]/detail/[id]
-        router.push(`/category/${categorySlug}/detail/${item.id}`);
-    };
-
-    // Fungsi filtering dan sorting dengan useMemo untuk optimasi
+    
+    // --- Logika Filter & Sort ---
     const filteredAndSortedItems = useMemo(() => {
         let filtered = [...items];
 
-        // 1. Filter berdasarkan search term
         if (searchTerm.trim()) {
             filtered = filtered.filter(item =>
                 item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()))
+                item.address.toLowerCase().includes(searchTerm.toLowerCase())
             );
         }
 
-        // 2. Filter berdasarkan subkategori
         if (selectedSubcategory !== 'all') {
-            filtered = filtered.filter(item => item.subcategory_name === selectedSubcategory);
+            filtered = filtered.filter(item => item.subcategory_slug === selectedSubcategory);
         }
 
-        // 3. Filter berdasarkan star rating (asumsi rating 1-5 ada di data item/metadata)
         if (filters.starRating.length > 0) {
-            filtered = filtered.filter(item => {
-                // Di sini Anda perlu logic untuk mengkonversi category_name menjadi star rating (e.g. "Hotel Bintang 5" -> 5)
-                const itemStarRating = item.category_name?.match(/\d+/)?.[0];
-                return itemStarRating && filters.starRating.includes(itemStarRating);
-            });
+            filtered = filtered.filter(item =>
+                // Gunakan 'star_rating' dari database
+                item.star_rating && filters.starRating.includes(item.star_rating.toString())
+            );
         }
-        
-        // 4. Filter berdasarkan review score
+
         if (filters.reviewScore.length > 0) {
-            filtered = filtered.filter(item => {
-                const ratingNum = parseFloat(item.average_rating as string) || 0;
-                return filters.reviewScore.includes(getRatingCategory(ratingNum));
-            });
-        }
-        
-        // 5. Sorting
+            filtered = filtered.filter(item =>
+            filters.reviewScore.includes(getRatingCategory(item.average_rating))
+            );
+        }       
+
         filtered.sort((a, b) => {
             const ratingA = parseFloat(a.average_rating as string) || 0;
             const ratingB = parseFloat(b.average_rating as string) || 0;
@@ -215,65 +158,42 @@ export default function CategoryListPage() {
             const priceB = b.base_price || 0;
 
             switch (sortOption) {
-                case 'harga-terendah':
-                    return priceA - priceB;
-                case 'harga-tertinggi':
-                    return priceB - priceA;
-                case 'rating':
-                    return ratingB - ratingA;
-                case 'terpopuler':
-                    // Asumsi popularitas = rating + review count
-                    const popA = ratingA * (a.total_reviews || 1);
-                    const popB = ratingB * (b.total_reviews || 1);
-                    return popB - popA;
-                case 'terbaru':
-                default:
-                    // Karena DB sort by created_at DESC, return 0 untuk mempertahankan urutan API
-                    return 0; 
+                case 'harga-terendah': return (a.price || 0) - (b.price || 0);
+                case 'harga-tertinggi': return (b.price || 0) - (a.price || 0);
+                case 'rating': return b.average_rating - a.average_rating;
+                default: return 0;
             }
         });
 
         return filtered;
     }, [items, searchTerm, selectedSubcategory, filters, sortOption]);
 
+
+    // --- Tampilan Loading & Error ---
     if (isLoading) {
-        return (
-            <div className="bg-gray-50 min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-                    <p className="mt-4 text-gray-600">Memuat {currentCategoryTitle}...</p>
-                </div>
-            </div>
-        );
+        return <div className="min-h-screen flex items-center justify-center text-center"><div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div><p className="mt-4">Loading...</p></div>;
     }
 
-    // Mendapatkan Subkategori yang tersedia untuk ditampilkan di filter (menggunakan data dummy)
-    const availableSubcategories = DUMMY_SUB_CATEGORIES[categorySlug] || [];
+    if (error) {
+        return <div className="min-h-screen flex items-center justify-center text-center"><p>Error: {error}</p></div>;
+    }
 
-
+    // --- Tampilan Utama (JSX Lengkap) ---
     return (
         <div className="bg-gray-50 min-h-screen">
-            {/* Header dengan breadcrumb */}
             <div className="bg-white border-b">
                 <div className="max-w-7xl mx-auto px-4 py-4">
                     <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                        <button 
-                            onClick={() => router.push(`/category/`)}
-                            className="flex items-center gap-1 hover:text-blue-600 transition-colors"
-                        >
-                            <ArrowLeft className="w-4 h-4" />
-                            Kembali
-                        </button>
+                        <Link href="/category" className="flex items-center gap-1 hover:text-blue-600">
+                            <ArrowLeft className="w-4 h-4" /> Kembali
+                        </Link>
                         <span>•</span>
-                        <span>{currentCategoryTitle}</span>
+                        <span>{categoryTitle}</span>
                     </div>
-                    <h1 className="text-2xl font-bold text-gray-800">
-                        {currentCategoryTitle} di Batam
-                    </h1>
+                    <h1 className="text-2xl font-bold text-gray-800">{categoryTitle} di Batam</h1>
                 </div>
             </div>
 
-            {/* Header Pencarian */}
             <div className="bg-white sticky top-0 z-10 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 py-4">
                     <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-4">
@@ -281,33 +201,24 @@ export default function CategoryListPage() {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                             <input
                                 type="text"
-                                placeholder="Cari nama tempat, alamat, atau deskripsi..."
-                                className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                placeholder={`Cari ${categoryTitle}...`}
+                                className="w-full pl-10 pr-4 py-3 border rounded-lg"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                         <div className="flex items-center gap-2">
-                            <div className="relative">
-                                <select
-                                    className="block appearance-none w-full bg-white border border-gray-300 py-3 px-4 pr-8 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-blue-500"
-                                    value={selectedSubcategory}
-                                    onChange={(e) => setSelectedSubcategory(e.target.value)}
-                                >
-                                    <option value="all">Semua Subkategori</option>
-                                    {availableSubcategories.map(sub => (
-                                        <option key={sub.value} value={sub.label}>{sub.label}</option>
-                                    ))}
-                                </select>
-                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                                    <ChevronDown className="w-4 h-4" />
-                                </div>
-                            </div>
-                            <button
-                                className="p-3 border rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
-                                onClick={handleClearFilters}
-                                title="Clear all filters"
+                            <select
+                                className="block appearance-none w-full bg-white border border-gray-300 py-3 px-4 pr-8 rounded-lg"
+                                value={selectedSubcategory}
+                                onChange={(e) => setSelectedSubcategory(e.target.value)}
                             >
+                                <option value="all">Semua Subkategori</option>
+                                {subcategories.map(sub => (
+                                    <option key={sub.slug} value={sub.slug}>{sub.name}</option>
+                                ))}
+                            </select>
+                            <button onClick={handleClearFilters} title="Clear all filters" className="p-3 border rounded-lg bg-gray-100 hover:bg-gray-200">
                                 <X className="w-5 h-5 text-gray-500" />
                             </button>
                         </div>
@@ -315,57 +226,39 @@ export default function CategoryListPage() {
                 </div>
             </div>
 
-            {/* Konten Utama */}
             <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
-                {/* Filter Sidebar */}
-                <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm h-fit sticky top-24">
+                <aside className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm h-fit">
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-xl font-bold">Filter</h2>
-                        <button 
-                            onClick={handleClearFilters} 
-                            className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
-                        >
-                            Clear All
-                        </button>
+                        <button onClick={handleClearFilters} className="text-sm text-blue-600 hover:text-blue-800">Clear All</button>
                     </div>
                     <hr className="my-4" />
-                    
                     <div className="space-y-6">
-                        {/* Rating Bintang - hanya untuk akomodasi */}
-                        {categorySlug === 'akomodasi' && (
+                        {categoryName === 'akomodasi' && (
                             <div>
                                 <h3 className="font-semibold text-gray-800 mb-3">Rating Bintang</h3>
                                 <div className="space-y-2">
                                     {['5', '4', '3', '2', '1'].map(star => (
-                                        <label key={star} className="flex items-center gap-2 cursor-pointer text-gray-600 hover:text-gray-800 transition-colors">
-                                            <input
-                                                type="checkbox"
-                                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                                        <label key={star} className="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox"
                                                 checked={filters.starRating.includes(star)}
                                                 onChange={() => handleFilterChange('starRating', star)}
                                             />
-                                            <div className="flex items-center gap-2">
-                                                {[...Array(parseInt(star))].map((_, i) => (
-                                                    <Star key={i} className="w-4 h-4 text-yellow-400 fill-current" />
-                                                ))}
-                                                <span>{star} Bintang</span>
-                                            </div>
+                                            {renderStars(parseInt(star))}
                                         </label>
                                     ))}
                                 </div>
                             </div>
                         )}
-
-                        {/* Review Score */}
                         <div>
                             <h3 className="font-semibold text-gray-800 mb-3">Review Score</h3>
                             <div className="space-y-2">
                                 {['Exceptional', 'Excellent', 'Very Good', 'Good'].map(score => (
-                                    <label key={score} className="flex items-center gap-2 cursor-pointer text-gray-600 hover:text-gray-800 transition-colors">
-                                        <input
-                                            type="checkbox"
-                                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                                    <label key={score} className="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" className="w-4 h-4 text-blue-600"
+                                            // BENAR: Gunakan state filter 'reviewScore' dan variabel 'score'
                                             checked={filters.reviewScore.includes(score)}
+                                            // BENAR: Panggil handler untuk 'reviewScore' dengan variabel 'score'
                                             onChange={() => handleFilterChange('reviewScore', score)}
                                         />
                                         <span>{score}</span>
@@ -374,154 +267,77 @@ export default function CategoryListPage() {
                             </div>
                         </div>
                     </div>
-                </div>
+                </aside>
 
-                {/* Daftar Item */}
-                <div className="lg:col-span-3">
+                <main className="lg:col-span-3">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
-                        <div className="text-sm text-gray-600">
-                            Menampilkan <strong>{filteredAndSortedItems.length}</strong> dari <strong>{items.length}</strong> hasil
-                        </div>
+                        <p className="text-sm text-gray-600">Menampilkan <strong>{filteredAndSortedItems.length}</strong> dari <strong>{items.length}</strong> hasil</p>
                         <div className="flex items-center gap-2">
                             <span className="text-sm text-gray-600">Urutkan:</span>
-                            <div className="relative">
-                                <select
-                                    className="block appearance-none w-full bg-white border border-gray-300 py-2 pl-3 pr-8 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-blue-500 text-sm"
-                                    value={sortOption}
-                                    onChange={(e) => setSortOption(e.target.value)}
-                                >
-                                    <option value="rating">Rating Tertinggi</option>
-                                    <option value="terbaru">Terbaru</option>
-                                    <option value="terpopuler">Terpopuler</option>
-                                    <option value="harga-terendah">Harga Terendah</option>
-                                    <option value="harga-tertinggi">Harga Tertinggi</option>
-                                </select>
-                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                                    <ChevronDown className="w-3 h-3" />
-                                </div>
-                            </div>
+                            <select
+                                className="block appearance-none bg-white border border-gray-300 py-2 pl-3 pr-8 rounded-lg text-sm"
+                                value={sortOption}
+                                onChange={(e) => setSortOption(e.target.value)}
+                            >
+                                <option value="terbaru">Terbaru</option>
+                                <option value="rating">Rating Tertinggi</option>
+                                <option value="harga-terendah">Harga Terendah</option>
+                                <option value="harga-tertinggi">Harga Tertinggi</option>
+                            </select>
                         </div>
                     </div>
 
-                    {/* No results message */}
-                    {filteredAndSortedItems.length === 0 && (
+                    {filteredAndSortedItems.length === 0 ? (
                         <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
-                            <div className="text-gray-400 mb-4">
-                                <Search className="w-16 h-16 mx-auto" />
-                            </div>
-                            <h3 className="text-xl font-semibold text-gray-600 mb-2">
-                                Tidak ada hasil ditemukan
-                            </h3>
-                            <p className="text-gray-500 mb-4">
-                                Coba ubah kata kunci pencarian atau filter yang dipilih
-                            </p>
-                            <button
-                                onClick={handleClearFilters}
-                                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                            >
-                                Reset Filter
-                            </button>
+                             <h3 className="text-xl font-semibold text-gray-600">Tidak ada hasil ditemukan</h3>
                         </div>
-                    )}
-
-                    {/* Item List */}
-                    <div className="space-y-4">
-                        {filteredAndSortedItems.map(item => {
-                            const numericRating = parseFloat(item.average_rating as string) || 0;
-                            const ratingLabel = getRatingLabel(numericRating);
-
-                            return (
+                    ) : (
+                        <div className="space-y-4">
+                            {filteredAndSortedItems.map(item => (
                                 <div
                                     key={item.id}
-                                    className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col lg:flex-row transition-all duration-200 ease-in-out hover:shadow-lg group-hover:-translate-y-1 group cursor-pointer"
-                                    onClick={() => handleItemClick(item)}
+                                    className="bg-white rounded-2xl shadow-sm flex flex-col lg:flex-row transition-shadow hover:shadow-lg cursor-pointer"
+                                    onClick={() => router.push(`/category/${categoryName}/detail/${item.id}`)}
                                 >
                                     <div className="relative w-full lg:w-48 h-48 lg:h-auto flex-shrink-0">
-                                        {item.thumbnail_image && (
-                                            <Image
-                                                src={
-                                                    item.thumbnail_image.startsWith("http")
-                                                        ? item.thumbnail_image
-                                                        : `${API_URL}/uploads/${item.thumbnail_image}`
-                                                }
-                                                alt={item.name}
-                                                fill
-                                                sizes="(max-width: 1024px) 100vw, 192px"
-                                                className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                            />
-                                        )}
-                                        {categorySlug === 'akomodasi' && (
-                                            <div className="absolute top-2 left-2 bg-white bg-opacity-90 px-2 py-1 rounded-lg backdrop-blur-sm">
-                                                {renderStars(parseInt(item.category_name?.match(/\d+/)?.[0] || '0'))}
-                                            </div>
-                                        )}
+                                        <Image
+                                            src={item.thumbnail_image.startsWith('http') ? item.thumbnail_image : `http://localhost:5000/uploads/${item.thumbnail_image}`}
+                                            alt={item.name}
+                                            fill
+                                            className="object-cover rounded-t-2xl lg:rounded-l-2xl lg:rounded-t-none"
+                                            sizes="(max-width: 1024px) 100vw, 12rem"
+                                        />
                                     </div>
                                     <div className="flex-1 p-6 flex flex-col justify-between">
                                         <div>
                                             <div className="flex items-start justify-between mb-2">
-                                                <h3 className="font-bold text-lg text-gray-800 group-hover:text-blue-600 transition-colors">
-                                                    {item.name}
-                                                </h3>
-                                                <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                                                <h3 className="font-bold text-lg text-gray-800">{item.name}</h3>
+                                                <div className="flex items-center gap-2 ml-4">
                                                     <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded-lg">
                                                         <Star className="w-4 h-4 text-green-600 fill-current" />
-                                                        <span className="font-bold text-green-600">
-                                                            {numericRating.toFixed(1)}
-                                                        </span>
+                                                        <span className="font-bold text-green-600">{item.average_rating.toFixed(1)}</span>
                                                     </div>
-                                                    <span className="text-sm text-gray-500 whitespace-nowrap">
-                                                        {ratingLabel}
-                                                    </span>
                                                 </div>
                                             </div>
-                                            
                                             <div className="flex items-center gap-1 text-sm text-gray-600 mb-3">
                                                 <MapPin className="w-4 h-4 flex-shrink-0" />
                                                 <span>{item.address}</span>
                                             </div>
-                                            
-                                            <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed">
-                                                {item.description || "Deskripsi belum tersedia."}
-                                            </p>
+                                            <p className="text-sm text-gray-500 line-clamp-2">{item.description}</p>
                                         </div>
-                                        
                                         <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                {numericRating >= 9.0 && (
-                                                    <div className="flex items-center gap-1 text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
-                                                        <Award className="w-3 h-3" />
-                                                        <span>Top Rated</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            
+                                            {renderStars(item.star_rating)} 
                                             <div className="text-right">
-                                                <div className="text-xs text-gray-500 mb-1">
-                                                    {item.base_price === 0 ? 'Masuk' : 'Mulai dari'}
-                                                </div>
-                                                <div className="font-bold text-lg text-blue-600">
-                                                    {formatPrice(item.base_price)}
-                                                </div>
-                                                <button className="mt-2 bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors group-hover:bg-blue-700">
-                                                    {categorySlug === 'akomodasi' ? 'Cek Ketersediaan' : 'Lihat Detail'}
-                                                </button>
+                                                <div className="text-xs text-gray-500">Mulai dari</div>
+                                                <div className="font-bold text-lg text-blue-600">{formatPrice(item.price)}</div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Load More Button - untuk implementasi pagination nantinya */}
-                    {filteredAndSortedItems.length > 0 && filteredAndSortedItems.length >= 10 && (
-                        <div className="text-center mt-8">
-                            <button className="bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-50 transition-colors">
-                                Muat Lebih Banyak
-                            </button>
+                            ))}
                         </div>
                     )}
-                </div>
+                </main>
             </div>
         </div>
     );

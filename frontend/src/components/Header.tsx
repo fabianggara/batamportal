@@ -73,7 +73,9 @@ const Header = () => {
           href="/"
           className="flex items-center hover:opacity-80 transition-opacity"
         >
-          <h1 className="text-2xl font-bold text-gray-800">BatamPortal</h1>
+           <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                BatamPortal
+              </h1>
         </Link>
 
         <div className="flex items-center gap-4">
@@ -103,6 +105,15 @@ const Header = () => {
                       <Shield className="w-6 h-6" />
                   </Link>
               )}
+
+              {/* Change Password */}
+                      <Link
+                        href="/login/change-password"
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-gray-700 transition-colors"
+                        onClick={() => setShowProfileDropdown(false)}
+                      >
+                        <KeyRound className="w-5 h-5 text-gray-500" />
+                      </Link>
 
               {/* Settings */}
               <Link

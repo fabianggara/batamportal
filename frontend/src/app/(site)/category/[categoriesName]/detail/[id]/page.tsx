@@ -10,25 +10,29 @@ import {
     Utensils as UtensilsIcon // Mengganti UtensilsCrossed agar tidak konflik
 } from 'lucide-react';
 
-// --- INTERFACE UTAMA (Dari View & Joins Backend) ---
-interface BusinessDetail {
-    id: number;
-    name: string; // Dari tabel businesses
-    address: string;
-    description?: string;
-    phone?: string; // Dari businesses
-    email?: string;
-    website?: string;
-    created_at?: string;
-    
-    // Dari View business_with_category
-    category_name?: string; 
-    subcategory_name?: string;
-    category_slug?: string;
+        interface Item {
+        id: number;
+        name: string; 
+        slug: string;
+        description: string | null;
+        address: string;
+        phone: string | null;
+        email: string | null;
+        website: string | null;
+        category: string | null;
+        subcategory: string | null;
+        thumbnail_image: string | null;
+        average_rating: number; 
+        total_reviews: number;  
+        created_at: string;
+        updated_at?: string;
+        }
 
-    // Media (harus di-join di backend)
-    media: MediaItem[]; 
-    thumbnail_image?: string; // Dari businesses
+        interface MediaItem {
+        id: number;
+        media_path: string;
+        media_type: 'photo' | 'video';
+        }
 
     // Akomodasi/Fitur Spesifik
     amenities: AmenityItem[]; // Dari join business_amenities & amenities
@@ -117,13 +121,15 @@ export default function ItemDetailPage() {
     const itemId = params?.id as string;
     const categoriesName = params?.categoriesName as string;
 
-    const [item, setItem] = useState<BusinessDetail | null>(null);
+    const [item, setItem] = useState<Item | null>(null);
+    const [media, setMedia] = useState<MediaItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
     const [isFavorite, setIsFavorite] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
-    const [relatedItems, setRelatedItems] = useState<BusinessDetail[]>([]);
+    const [relatedItems, setRelatedItems] = useState<Item[]>([]);
+    const [dummyAccommodationData, setDummyAccommodationData] = useState<any>(null);
     const [mapUrl, setMapUrl] = useState('');
     
     // Booking states
@@ -132,11 +138,10 @@ export default function ItemDetailPage() {
     const [guests, setGuests] = useState(2);
     const [rooms, setRooms] = useState(1);
 
-    // Dummy Breakdown Rating (Harusnya dari fetch /reviews)
-    const [ratingBreakdown] = useState({
-        kebersihan: 5.0, lokasi: 4.9, staf: 4.8, fasilitas: 4.7, kenyamanan: 4.8,
-    });
+    // Get both categoriesName and id from params
+    const categoriesName = params?.categoriesName as string;
 
+    // Helper functions for booking
     const formatDateDisplay = (dateString: string) => {
         const date = new Date(dateString);
         const days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
@@ -154,31 +159,39 @@ export default function ItemDetailPage() {
 
     useEffect(() => {
         const fetchItemDetail = async () => {
-            if (!itemId) return;
+        if (!itemId) return;
+        
+        try {
+            setLoading(true);
+
+            const token = localStorage.getItem('authToken'); 
             
-            try {
-                setLoading(true);
-                const apiUrl = 'http://localhost:5000'; 
+            const itemRes = await fetch(`http://localhost:5000/api/businesses/${itemId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}` // <-- Tambahkan baris ini
+                }
+                });
+            const itemJson = await itemRes.json();
+            
+            if (itemJson.success) {
+                setItem(itemJson.data);
                 
-                // PENTING: API Detail harus me-JOIN semua tabel (media, amenities, room_types)
-                // Asumsi API endpoint /api/businesses/:id mengembalikan SEMUA data ter-join
-                const itemRes = await fetch(`${apiUrl}/api/businesses/${itemId}`); 
-                const itemJson = await itemRes.json();
-                
-                if (itemJson.success && itemJson.data) {
-                    const data: BusinessDetail = itemJson.data;
-
-                    // 1. Set Item Detail
-                    setItem(data);
-                    
-                    // 2. Setup Map URL
-                    if (data.latitude && data.longitude) {
-                        setMapUrl(`https://maps.google.com/maps?q=${data.latitude},${data.longitude}&z=15&output=embed`);
+                // Fetch media
+                try {
+                    const mediaRes = await fetch(`http://localhost:5000/api/businesses/${itemId}/media`);
+                    const mediaJson = await mediaRes.json();
+                    if (mediaJson.success) {
+                        setMedia(mediaJson.data);
                     }
+                } catch (mediaErr) {
+                    console.log("No media found for this item");
+                    setMedia([]);
+                }
 
-                    // 3. Fetch related items (Asumsi: /api/businesses/related?category_slug=X&exclude=Y)
-                    if (data.category_slug) {
-                        const relatedRes = await fetch(`${apiUrl}/api/businesses/related?category_slug=${data.category_slug}&limit=4&exclude=${itemId}`);
+                // Fetch related items
+                if (itemJson.data.category) {
+                    try {
+                        const relatedRes = await fetch(`http://localhost:5000/api/businesses/category/${encodeURIComponent(itemJson.data.category)}?limit=4&exclude=${itemId}`);
                         const relatedJson = await relatedRes.json();
                         if (relatedJson.success && Array.isArray(relatedJson.data)) {
                             setRelatedItems(relatedJson.data);
@@ -210,23 +223,33 @@ export default function ItemDetailPage() {
 
     const handleShare = async () => {
         if (navigator.share && item) {
-            try {
-                await navigator.share({
-                    title: item.name,
-                    text: item.description,
-                    url: window.location.href
-                });
-            } catch (err) {
-                console.log('Error sharing:', err);
-            }
+        try {
+            await navigator.share({
+            title: item.name,
+            text: item.description || '',
+            url: window.location.href
+            });
+        } catch (err) {
+            console.log('Error sharing:', err);
+        }
         } else {
             setShowShareModal(true);
         }
     };
 
-    const handleContact = () => { if (item?.phone) window.open(`tel:${item.phone}`, '_self'); };
-    const handleEmail = () => { if (item?.email) window.open(`mailto:${item.email}`, '_self'); };
-    const handleWebsite = () => { 
+    const handlePhone = () => {
+        if (item?.phone) {
+        window.open(`tel:${item.phone}`, '_self');
+        }
+    };
+
+    const handleEmail = () => {
+        if (item?.email) {
+        window.open(`mailto:${item.email}`, '_self');
+        }
+    };
+
+    const handleWebsite = () => {
         if (item?.website) {
             const url = item.website.startsWith('http') ? item.website : `https://${item.website}`;
             window.open(url, '_blank');
@@ -238,11 +261,24 @@ export default function ItemDetailPage() {
     };
 
     const prevMedia = () => {
-        if (item?.media) setCurrentMediaIndex((prev) => (prev - 1 + item.media.length) % item.media.length);
+        setCurrentMediaIndex((prevIndex) => (prevIndex - 1 + media.length) % media.length);
     };
-    
+
+    // const handleBooking = () => {
+    //     // Redirect to booking form with booking data
+    //     const bookingParams = new URLSearchParams({
+    //         itemId: item?.id?.toString() || '',
+    //         hotelName: item?.place_name || '',
+    //         checkIn: checkInDate,
+    //         checkOut: checkOutDate,
+    //         guests: guests.toString(),
+    //         rooms: rooms.toString()
+    //     });
+        
+    //     router.push(`/form/accommodationBook?${bookingParams.toString()}`);
+    // };
+
     const handleBooking = () => {
-        // Logika booking: mengarahkan ke form dengan parameter
         const bookingParams = new URLSearchParams({
             itemId: item?.id?.toString() || '',
             hotelName: item?.name || '',
@@ -297,7 +333,7 @@ export default function ItemDetailPage() {
                     className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                 >
                     <ArrowLeft className="w-5 h-5" />
-                    Kembali
+                    Kembali ke {categoriesName}
                 </button>
                 <div>
                     <h1 className="text-xl font-bold text-gray-800 truncate max-w-md">
@@ -464,17 +500,16 @@ export default function ItemDetailPage() {
                     ) : item.thumbnail_image ? (
                     <div className="relative h-80 overflow-hidden">
                         <Image
-                        src={
+                            src={
                             item.thumbnail_image?.startsWith("http")
-                            ? item.thumbnail_image
-                            : `http://localhost:5000/uploads/${item.thumbnail_image}`
-                        }
-                        alt={item.name}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 66vw"
-                        className="object-cover"
+                                ? item.thumbnail_image
+                                : `http://localhost:5000/uploads/${item.thumbnail_image}`
+                            }
+                            alt={item.name || `Gambar untuk ${item.id}`} 
+                            fill
+                            className="object-cover"
                         />
-                    </div>
+                        </div>
                     ) : (
                     <div className="h-80 bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
                         <Camera className="w-16 h-16 text-gray-400" />
@@ -541,14 +576,8 @@ export default function ItemDetailPage() {
                         
                         <div className="flex items-center gap-1">
                             <Star className="w-5 h-5 text-yellow-400 fill-current" />
-                            <span className="font-semibold">
-                                {
-                                    (item.average_rating !== null && item.average_rating !== undefined)
-                                        ? parseFloat(item.average_rating).toFixed(1)
-                                        : 'N/A'
-                                }
-                            </span>
-                            <span className="text-gray-500 text-sm">({item.total_reviews || 0})</span>
+                            <span className="font-semibold">{item?.average_rating || 'N/A'}</span>
+                            <span className="text-gray-500 text-sm">({item?.total_reviews || 0} ulasan)</span>
                         </div>
                     </div>
 
@@ -628,29 +657,28 @@ export default function ItemDetailPage() {
                 {/* Lokasi & Lingkungan Sekitar */}
                 {item.latitude && item.longitude && (
                     <div className="bg-white rounded-2xl shadow-sm p-6 mt-6">
-                        <h3 className="text-lg font-bold text-gray-800 mb-4">Lokasi & Lingkungan Sekitar</h3>
-                        <div className="relative h-64 rounded-lg overflow-hidden mb-4">
-                            <iframe
-                                width="100%"
-                                height="100%"
-                                src={mapUrl}
-                                frameBorder="0"
-                                style={{ border: 0 }}
-                                allowFullScreen
-                                aria-hidden="false"
-                                tabIndex={0}
-                            ></iframe>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-4">
-                            {item.name} berlokasi di {item.address}
-                        </p>
-                        {/* Nearby Places (Asumsi di-join di backend atau endpoint terpisah) */}
-                        <h4 className="font-semibold text-gray-800 mb-2">Tempat terdekat:</h4>
-                        <div className="space-y-2 text-sm text-gray-600">
-                            {/* Dummy Nearby: Anda harus mengganti ini dengan data dari tabel nearby_places */}
-                            <div className="flex justify-between items-center">
-                                <span>Nagoya Hill Shopping Mall</span>
-                                <span className="text-gray-400">1.2 km</span>
+                    <h3 className="text-lg font-bold text-gray-800 mb-4">Lokasi & Lingkungan Sekitar</h3>
+                    <div className="relative h-64 rounded-lg overflow-hidden mb-4">
+                        <iframe
+                            width="100%"
+                            height="100%"
+                            src={mapUrl}
+                            frameBorder="0"
+                            style={{ border: 0 }}
+                            allowFullScreen
+                            aria-hidden="false"
+                            tabIndex={0}
+                        ></iframe>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">
+                        {item.name} berlokasi di {item.address}
+                    </p>
+                    <h4 className="font-semibold text-gray-800 mb-2">Tempat terdekat:</h4>
+                    <div className="space-y-2 text-sm text-gray-600">
+                        {dummyAccommodationData.locationInfo.nearby.map((place: any, index: number) => (
+                            <div key={index} className="flex justify-between items-center">
+                                <span>{place.name}</span>
+                                <span className="text-gray-400">{place.distance}</span>
                             </div>
                             <div className="flex justify-between items-center">
                                 <span>Pelabuhan Feri Batam Center</span>
@@ -671,7 +699,7 @@ export default function ItemDetailPage() {
                                     <div className="w-full bg-gray-200 rounded-full h-2.5">
                                         <div className="bg-yellow-400 h-2.5 rounded-full" style={{ width: `${(value as number) * 20}%` }}></div>
                                     </div>
-                                    <span className="text-sm font-semibold">{value.toFixed(1)}</span>
+                                    <span className="text-sm font-semibold">{(value as number).toFixed(1)}</span>
                                 </div>
                             </div>
                         ))}
@@ -681,43 +709,42 @@ export default function ItemDetailPage() {
                 {/* Related Items */}
                 {relatedItems.length > 0 && (
                     <div className="bg-white rounded-2xl shadow-sm p-6 mt-6">
-                        <h3 className="text-xl font-bold text-gray-800 mb-4">Rekomendasi Lainnya</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {relatedItems.map((relatedItem) => (
-                            <div
-                                key={relatedItem.id}
-                                onClick={() => router.push(`/category/${relatedItem.category_slug}/detail/${relatedItem.id}`)}
-                                className="flex gap-3 p-3 border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
-                            >
-                                <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                                    {relatedItem.thumbnail_image ? (
-                                    <Image
-                                        src={
-                                        relatedItem.thumbnail_image?.startsWith("http")
-                                            ? relatedItem.thumbnail_image
-                                            : `http://localhost:5000/uploads/${relatedItem.thumbnail_image}`
-                                        }
-                                        alt={relatedItem.name}
-                                        fill
-                                        className="object-cover"
-                                    />
-                                    ) : (
-                                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                                        <Camera className="w-6 h-6 text-gray-400" />
-                                    </div>
-                                    )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <h4 className="font-semibold text-gray-800 text-sm truncate">{relatedItem.name}</h4>
-                                    <p className="text-xs text-gray-500 mt-1">{relatedItem.category_name}</p>
-                                    <div className="flex items-center gap-1 mt-1">
-                                    <MapPin className="w-3 h-3 text-gray-400" />
-                                    <span className="text-xs text-gray-500 truncate">{relatedItem.address}</span>
-                                    </div>
-                                </div>
+                    <h3 className="text-xl font-bold text-gray-800 mb-4">Rekomendasi Lainnya</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {relatedItems.map((relatedItem) => (
+                        <div
+                        key={relatedItem.id}
+                        onClick={() => router.push(`/category/${relatedItem.category}/detail/itemDetail/${relatedItem.id}`)}
+                        className="flex gap-3 p-3 border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
+                        >
+                        <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                            {relatedItem.thumbnail_image ? (
+                            <Image
+                                src={
+                                relatedItem.thumbnail_image?.startsWith("http")
+                                    ? relatedItem.thumbnail_image
+                                    : `http://localhost:5000/uploads/${relatedItem.thumbnail_image}`
+                                }
+                                alt={relatedItem.name}
+                                fill
+                                className="object-cover"
+                            />
+                            ) : (
+                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                <Camera className="w-6 h-6 text-gray-400" />
                             </div>
                         ))}
                         </div>
+                        <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-gray-800 text-sm truncate">{relatedItem.name}</h4>
+                            <p className="text-xs text-gray-500 mt-1">{relatedItem.category}</p>
+                            <div className="flex items-center gap-1 mt-1">
+                            <MapPin className="w-3 h-3 text-gray-400" />
+                            <span className="text-xs text-gray-500 truncate">{relatedItem.address}</span>
+                            </div>
+                        </div>
+                        </div>
+                    ))}
                     </div>
                 )}
             </div>
@@ -780,7 +807,7 @@ export default function ItemDetailPage() {
                 <div className="space-y-3">
                     {item.phone && (
                     <button
-                        onClick={handleContact}
+                        onClick={handlePhone}
                         className="w-full flex items-center gap-3 p-3 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors text-left"
                     >
                         <div className="bg-blue-100 p-2 rounded-lg">

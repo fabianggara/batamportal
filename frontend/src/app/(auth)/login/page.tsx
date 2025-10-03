@@ -25,7 +25,7 @@ export default function LoginPage() {
     setMessage('');
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-    const endpoint = `${apiUrl}/api/login`;
+    const endpoint = `${apiUrl}/api/auth/login`;
 
     try {
       const response = await fetch(endpoint, {
