@@ -4,6 +4,10 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from "next/image";
+import dynamic from 'next/dynamic';
+import 'leaflet/dist/leaflet.css';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
 import { useRouter, useParams } from 'next/navigation';
 import { 
         ChevronLeft, 
@@ -68,6 +72,8 @@ import {
         total_reviews: number;  
         created_at: string;
         updated_at?: string;
+        latitude: number | null;
+        longitude: number | null;
         }
 
         interface MediaItem {
@@ -204,6 +210,32 @@ const formatPrice = (price: number) => {
     }).format(price);
 };
 
+const LocationMap = ({ lat, lng, name }: { lat: number; lng: number; name: string }) => {
+    const customIcon = new L.Icon({
+        iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+
+    return (
+        <MapContainer center={[lat, lng]} zoom={15} scrollWheelZoom={false} style={{ height: '250px', width: '100%', borderRadius: '1rem' }}>
+            <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <Marker position={[lat, lng]} icon={customIcon}>
+                <Popup>{name}</Popup>
+            </Marker>
+        </MapContainer>
+    );
+};
+
+
+
 export default function ItemDetailPage() {
     const router = useRouter();
     const params = useParams();
@@ -288,19 +320,6 @@ export default function ItemDetailPage() {
                         console.log("No related items found");
                         setRelatedItems([]);
                     }
-                }
-
-                // Get dummy data if category is 'akomodasi'
-                if (itemJson.data.category?.toLowerCase() === 'akomodasi') {
-                    const data = dummyData['akomodasi-1234'];
-                    setDummyAccommodationData(data);
-                    if (data.locationInfo) {
-                        const { lat, lng } = data.locationInfo;
-                        setMapUrl(`https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`);
-                    }
-                } else {
-                    // Get dummy data for other categories if needed
-                    setDummyAccommodationData(null);
                 }
 
             } else {
@@ -457,7 +476,6 @@ export default function ItemDetailPage() {
                     className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                 >
                     <ArrowLeft className="w-5 h-5" />
-                    Kembali ke {categoriesName}
                 </button>
                 <div>
                     <h1 className="text-xl font-bold text-gray-800 truncate max-w-md">
@@ -1007,49 +1025,21 @@ export default function ItemDetailPage() {
                 </div>
                 </div>
 
-                {/* Additional Info */}
-                <div className="bg-white rounded-2xl shadow-sm p-6">
-                <h3 className="text-lg font-bold text-gray-800 mb-4">Informasi Tambahan</h3>
-                
-                <div className="space-y-3">
-                    {item.created_at && (
-                    <div className="flex items-center gap-3">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <div>
-                        <p className="text-sm text-gray-500">Terdaftar sejak</p>
-                        <p className="font-medium">{formatDate(item.created_at)}</p>
-                        </div>
-                    </div>
-                    )}
-                    
-                    <div className="flex items-center gap-3">
-                    <Users className="w-4 h-4 text-gray-400" />
-                    <div>
-                        <p className="text-sm text-gray-500">Pengunjung bulan ini</p>
-                        <p className="font-medium">2.3k orang</p>
-                    </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                    <Award className="w-4 h-4 text-gray-400" />
-                    <div>
-                        <p className="text-sm text-gray-500">Status</p>
-                        <p className="font-medium text-green-600">Terverifikasi</p>
-                    </div>
-                    </div>
-                </div>
-                </div>
-
-                {/* Quick Actions */}
-                <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-6 text-white">
-                <h3 className="text-lg font-bold mb-3">Ada pertanyaan?</h3>
-                <p className="text-sm opacity-90 mb-4">
-                    Hubungi tim support kami untuk bantuan lebih lanjut
-                </p>
-                <button className="w-full bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
-                    Hubungi Support
-                </button>
-                </div>
+                {/* Lokasi Peta dari Database */}
+{item.latitude && item.longitude && (
+    <div className="bg-white rounded-2xl shadow-sm p-6">
+        <h3 className="text-lg font-bold text-gray-800 mb-4">Lokasi</h3>
+        <LocationMap
+            lat={item.latitude}
+            lng={item.longitude}
+            name={item.name}
+        />
+        <div className="flex items-start gap-3 mt-4">
+            <MapPin className="w-5 h-5 text-gray-400 mt-1 flex-shrink-0" />
+            <p className="text-sm font-medium text-gray-700">{item.address}</p>
+        </div>
+    </div>
+)}
             </div>
             </div>
         </div>

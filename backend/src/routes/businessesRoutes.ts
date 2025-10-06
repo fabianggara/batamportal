@@ -16,7 +16,7 @@ router.get('/category/:categoryName', async (req: Request, res: Response) => {
         const getItemsQuery = `
             SELECT 
                 b.id, b.name, b.address, b.average_rating, b.total_reviews, b.star_rating,
-                b.thumbnail_image, b.description, b.average_rating, sc.slug as subcategory_slug, b.price
+                b.thumbnail_image, b.description, b.average_rating, sc.slug as subcategory_slug, b.price, b.latitude, b.longitude
             FROM businesses b
             JOIN categories c ON b.category_id = c.id
             LEFT JOIN subcategories sc ON b.subcategory_id = sc.id
