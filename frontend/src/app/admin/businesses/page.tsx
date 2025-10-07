@@ -146,6 +146,26 @@ export default function BusinessesPage() {
     const [sortBy, setSortBy] = useState<'name' | 'date' | 'category'>('date');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
+    // --- FUNGSI BARU: Konversi Nama Kategori menjadi Slug Folder
+    // Kita asumsikan kategori Anda: Akomodasi -> akomodasi, Kuliner -> kuliner, dll.
+    const getCategorySlug = (categoryName: string | null): string => {
+        if (!categoryName) return 'default'; // Jika null, gunakan default
+        
+        // Konversi ke lowercase dan ganti spasi/karakter non-alphanumerik lainnya dengan dash
+        const slug = categoryName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-*|-*$/g, '');
+        
+        // Mapping manual jika diperlukan (misal: 'Wisata' ke 'wisata')
+        switch (categoryName) {
+            case 'Akomodasi':
+                return 'akomodasi';
+            case 'Kuliner':
+                return 'kuliner';
+            // Tambahkan case untuk kategori utama lain jika slug folder berbeda dari nama_kecil
+            default:
+                return slug; 
+        }
+    };
+
     // CRUD states
     const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; business: Business | null }>({
         isOpen: false,
@@ -230,11 +250,34 @@ export default function BusinessesPage() {
     };
 
     // Navigasi
-    const handleViewBusiness = (id: number) => { 
-        router.push(`/admin/businesses/preview/${id}`);
+
+    // const handleViewBusiness = (id: number) => { 
+    //     router.push(`/admin/businesses/preview/${id}`);
+    // };
+    const handleViewBusiness = (business: Business) => { 
+        if (!business.category_name) return;
+
+        const categorySlug = getCategorySlug(business.category_name);
+        
+        // Membangun path: /admin/businesses/preview/[kategori_slug]/[id]
+        router.push(`/admin/businesses/preview/${categorySlug}/${business.id}`);
     };
-    const handleEditBusiness = (id: number) => { 
-        router.push(`/admin/businesses/edit/${id}`);
+    // const handleEditBusiness = (id: number) => { 
+    //     router.push(`/admin/businesses/edit/${id}`);
+    // };
+    // 🔥 PERUBAHAN KRITIS: Logika Navigasi Edit
+    const handleEditBusiness = (business: Business) => { 
+        if (!business.category_name) {
+            // Opsional: Handle error jika tidak ada kategori
+            showToast('Bisnis ini tidak memiliki kategori yang valid untuk diedit.', 'error');
+            return;
+        }
+
+        const categorySlug = getCategorySlug(business.category_name);
+        
+        // Membangun path sesuai struktur folder: /admin/businesses/edit/[kategori_slug]/[id]
+        // Contoh: /admin/businesses/edit/akomodasi/123
+        router.push(`/admin/businesses/edit/${categorySlug}/${business.id}`);
     };
     const handleDeleteClick = (business: Business) => { 
         setDeleteModal({ isOpen: true, business });
@@ -285,6 +328,8 @@ export default function BusinessesPage() {
     useEffect(() => {
         fetchBusinesses(); 
     }, []);
+
+    
 
     // Filter dan Sort Logic
     const categories = useMemo(() => {
@@ -666,13 +711,17 @@ export default function BusinessesPage() {
                                             {business.phone && (
                                                 <div className="flex items-center gap-1 text-sm text-gray-900">
                                                     <Phone className="w-4 h-4 text-gray-400" />
-                                                    {business.phone}
+                                                    <span>
+                                                        {business.phone}
+                                                    </span>
                                                 </div>
                                             )}
                                             {business.email && (
                                                 <div className="flex items-center gap-1 text-sm text-gray-600">
                                                     <Mail className="w-4 h-4 text-gray-400" />
-                                                    <span className="truncate max-w-xs">{business.email}</span>
+                                                    <span className="truncate max-w-xs">
+                                                        {business.email}
+                                                    </span>
                                                 </div>
                                             )}
                                             {!business.phone && !business.email && (
@@ -693,14 +742,16 @@ export default function BusinessesPage() {
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex items-center justify-end gap-2">
                                             <button
-                                                onClick={() => handleViewBusiness(business.id)}
+                                                // onClick={() => handleViewBusiness(business.id)}
+                                                onClick={() => handleViewBusiness(business)}
                                                 className="text-blue-600 hover:text-blue-900 p-2 rounded-lg hover:bg-blue-50 transition-colors"
                                                 title="Lihat Preview"
                                             >
                                                 <Eye className="w-4 h-4" />
                                             </button>
                                             <button
-                                                onClick={() => handleEditBusiness(business.id)}
+                                                // onClick={() => handleEditBusiness(business.id)}
+                                                onClick={() => handleEditBusiness(business)}
                                                 className="text-green-600 hover:text-green-900 p-2 rounded-lg hover:bg-green-50 transition-colors"
                                                 title="Edit"
                                             >

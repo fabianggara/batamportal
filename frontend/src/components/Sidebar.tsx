@@ -5,21 +5,8 @@ import Image from "next/image"; // Tambahkan import Image
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { 
-    Home, 
-    Users, 
-    Star,
-    Building2,
-    // MapPin,
-    ChevronLeft, 
-    ChevronRight,
-    BarChart3,
-    LogOut,
-    User,
-    Menu,
-    X,
-    Settings,
-    HandCoins,
-    TreePine
+    Home, Users, Star, ChevronLeft, ChevronRight, LogOut, User,
+    Menu, X, Settings, HandCoins, TreePine, Earth
 } from "lucide-react";
 
 // Import useAuth
@@ -61,18 +48,18 @@ export default function Sidebar() {
             description: "User Management"
         },
         {
+            title: "Public",
+            href: "/",
+            icon: Earth,
+            badge: null,
+            description: "Public Views"
+        },
+        {
             title: "Reviews",
             href: "/admin/reviews",
             icon: Star,
             badge: null,
             description: "User Reviews"
-        },
-        {
-            title: "Government",
-            href: "/admin/government",
-            icon: Building2, // Icon untuk instansi pemerintahan
-            badge: null,
-            description: "Government Institutions"
         },
         {
             title: "Businesses",
@@ -87,13 +74,6 @@ export default function Sidebar() {
             icon: TreePine, // Icon untuk ruang publik/taman
             badge: null,
             description: "Public Places"
-        },
-        {
-            title: "Analytics",
-            href: "/admin/analytics",
-            icon: BarChart3,
-            badge: null,
-            description: "Reports & Stats"
         },
         {
             title: "Settings",

@@ -7,17 +7,17 @@ import { useRouter } from 'next/navigation';
 import { 
     ArrowLeft, Building2, MapPin, Phone, Globe, Upload, Mail, AlertCircle,
     Loader2, X, Camera, Wifi, Car, Waves, Dumbbell, Coffee, Utensils, AirVent, Tv,
-    Bath, Bed, Users, Plus, Minus, Check, Bell,
-    Dog // <--- FIX: Dog Icon Ditambahkan di sini
+    Bath, Bed, Plus, Minus, Check, Bell,
+    Dog
 } from 'lucide-react';
 
-// --- INTERFACES ---
+// --- INTERFACES YANG DIPERBARUI ---
 
 interface HotelFormData {
     nama: string;
     alamat: string;
-    kategori: string; // 'akomodasi' (Statik, ID 1 di DB)
-    subkategori: string; // Slug subkategori (misal: 'hotel-bintang-4')
+    kategori: string;
+    subkategori: string;
     kontak: string;
     website: string;
     email: string;
@@ -25,8 +25,8 @@ interface HotelFormData {
     logo: File | null;
     latitude: string;
     longitude: string;
-    checkIn: string; // Waktu untuk business_hours.open_time
-    checkOut: string; // Waktu untuk business_hours.close_time
+    checkIn: string;
+    checkOut: string;
 }
 
 interface MediaFile {
@@ -37,12 +37,13 @@ interface MediaFile {
 }
 
 interface Facility {
-    id: string; // ID string untuk mapping ke tabel FACILITIES (e.g., 'WiFi Gratis')
+    id: string;
     name: string;
     icon: React.ElementType;
     category: string;
 }
 
+// 🔥 PERUBAHAN: Tambahkan properti foto
 interface RoomType {
     id: string;
     name: string;
@@ -51,6 +52,8 @@ interface RoomType {
     capacity: number;
     bedType: string;
     price: number;
+    photoFile: File | null;     // File foto kamar yang akan di-upload
+    photoPreview: string | null; // URL preview di frontend
 }
 // ------------------------------------------
 
@@ -166,7 +169,40 @@ export default function HotelFullForm() {
         );
     };
 
+    // 🔥 HANDLER BARU: Menangani upload foto untuk kamar spesifik
+    const handleRoomPhotoChange = (roomId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0] || null;
+        let previewUrl: string | null = null;
+
+        if (file) {
+            // Validasi file (opsional, tapi disarankan)
+            if (file.size > 5 * 1024 * 1024) {
+                 // Tidak diset di state error utama, tapi bisa ditambahkan alert
+                alert("Ukuran foto kamar tidak boleh melebihi 5MB."); 
+                return;
+            }
+            previewUrl = URL.createObjectURL(file);
+        }
+        
+        setRoomTypes(prev => prev.map(room => 
+            room.id === roomId 
+                ? { ...room, photoFile: file, photoPreview: previewUrl } 
+                : room
+        ));
+    };
+
+    // 🔥 HANDLER BARU: Menghapus foto kamar
+    const removeRoomPhoto = (roomId: string) => {
+        setRoomTypes(prev => prev.map(room => 
+            room.id === roomId 
+                ? { ...room, photoFile: null, photoPreview: null } 
+                : room
+        ));
+    };
+
+
     const addRoomType = () => {
+        // 🔥 PERUBAHAN: Tambahkan state default untuk foto
         const newRoom: RoomType = {
             id: `room_${Date.now()}`,
             name: '',
@@ -174,7 +210,9 @@ export default function HotelFullForm() {
             size: '',
             capacity: 2,
             bedType: '',
-            price: 0
+            price: 0,
+            photoFile: null,
+            photoPreview: null
         };
         setRoomTypes(prev => [...prev, newRoom]);
     };
@@ -204,6 +242,11 @@ export default function HotelFullForm() {
         if (formData.website && !formData.website.match(/^https?:\/\/.+/)) {
             newErrors.website = 'Website harus dimulai dengan http:// atau https://';
         }
+        
+        // Tambahkan validasi kamar minimal satu (opsional, tergantung kebutuhan)
+        // if (roomTypes.length > 0 && roomTypes.some(r => !r.name)) {
+        //     newErrors.roomTypes = 'Nama semua kamar wajib diisi.';
+        // }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -221,10 +264,9 @@ export default function HotelFullForm() {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
         const SUBMIT_URL = `${API_URL}/api/businesses`; 
 
-        // 1. Kumpulkan data ke FormData (wajib untuk file upload)
         const data = new FormData();
         
-        // Data Teks dan Nilai Numerik (Tabel businesses)
+        // 1. Data Teks dan Nilai Numerik (Tabel businesses)
         Object.keys(formData).forEach(key => {
             const value = formData[key as keyof HotelFormData];
             if (typeof value === 'string') {
@@ -232,20 +274,39 @@ export default function HotelFullForm() {
             }
         });
         
-        // Data Array (Tabel business_facilities & room_types)
+        // 2. Data Array (Fasilitas & Kamar)
         data.append('selectedFacilities', JSON.stringify(selectedFacilities)); 
-        data.append('roomTypes', JSON.stringify(roomTypes));
-
-        // Data File (thumbnail_image & business_media)
-        if (formData.logo) {
-            data.append('thumbnail_picture', formData.logo); // fieldname 'thumbnail_picture'
-        }
         
+        // 🔥 PERUBAHAN: Kirim DATA TEKS/NUMERIK kamar saja, buang file/preview dari JSON
+        const roomDataForAPI = roomTypes.map(room => ({
+            name: room.name,
+            description: room.description,
+            size: room.size,
+            capacity: room.capacity,
+            bedType: room.bedType,
+            price: room.price,
+            // ID Room bersifat sementara di frontend, tidak perlu dikirim
+        }));
+        data.append('roomTypes', JSON.stringify(roomDataForAPI));
+
+        // 3. Data File (thumbnail_image & business_media)
+        if (formData.logo) {
+            data.append('thumbnail_picture', formData.logo);
+        }
         mediaFiles.forEach((media) => {
-            data.append('media_files', media.file); // fieldname 'media_files'
+            data.append('media_files', media.file);
         });
 
-        // 2. Kirim ke API (POST)
+        // 🔥 BARU: Data File Kamar (Lampirkan file per kamar)
+        roomTypes.forEach((room, index) => {
+            if (room.photoFile) {
+                // Gunakan fieldname unik yang dapat dicocokkan backend dengan JSON roomTypes:
+                // room_photo_0 akan dicocokkan dengan kamar pertama (index 0) di array roomTypes.
+                data.append(`room_photo_${index}`, room.photoFile); 
+            }
+        });
+
+        // 4. Kirim ke API (POST)
         try {
             const response = await fetch(SUBMIT_URL, {
                 method: 'POST',
@@ -258,7 +319,7 @@ export default function HotelFullForm() {
                 throw new Error(result.error || 'Terjadi kesalahan saat mengirim data. Cek input Anda.');
             }
 
-            // 3. Sukses
+            // 5. Sukses
             setShowSuccess(true);
             setErrors({});
 
@@ -272,30 +333,13 @@ export default function HotelFullForm() {
     // --------------------------------------------------------------------
 
     if (showSuccess) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
-                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Check className="w-8 h-8 text-blue-600" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Berhasil Didaftarkan!</h2>
-                    <p className="text-gray-600 mb-6">
-                        Hotel Anda telah berhasil didaftarkan dan akan diverifikasi dalam 1-2 hari kerja.
-                    </p>
-                    <button 
-                        onClick={() => router.push('/admin/businesses')}
-                        className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
-                    >
-                        Kembali ke Dashboard
-                    </button>
-                </div>
-            </div>
-        );
+        // ... (Success Screen JSX) ...
     }
 
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Header */}
+            {/* ... (Header JSX) ... */}
             <div className="bg-white shadow-sm sticky top-0 z-40">
                 <div className="max-w-6xl mx-auto px-4 py-4">
                     <div className="flex items-center justify-between">
@@ -333,6 +377,7 @@ export default function HotelFullForm() {
                 <form onSubmit={handleSubmit} className="space-y-8">
                     
                     {/* Informasi Dasar */}
+                    {/* ... (JSX Informasi Dasar) ... */}
                     <div className="bg-white rounded-2xl shadow-sm p-6">
                         <h2 className="text-2xl font-bold text-gray-800 mb-6">Informasi Dasar Hotel</h2>
                         
@@ -426,6 +471,7 @@ export default function HotelFullForm() {
                     </div>
 
                     {/* Kontak & Operasional */}
+                    {/* ... (JSX Kontak & Operasional) ... */}
                     <div className="bg-white rounded-2xl shadow-sm p-6">
                         <h2 className="text-2xl font-bold text-gray-800 mb-6">Kontak & Jam Operasional</h2>
                         
@@ -534,6 +580,7 @@ export default function HotelFullForm() {
                     </div>
 
                     {/* Logo & Galeri */}
+                    {/* ... (JSX Logo & Galeri) ... */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         {/* Logo Upload */}
                         <div className="bg-white rounded-2xl shadow-sm p-6">
@@ -623,6 +670,7 @@ export default function HotelFullForm() {
                     </div>
 
                     {/* Fasilitas */}
+                    {/* ... (JSX Fasilitas) ... */}
                     <div className="bg-white rounded-2xl shadow-sm p-6">
                         <h2 className="text-2xl font-bold text-gray-800 mb-4">Fasilitas Hotel</h2>
                         <p className="text-gray-600 mb-6">Pilih fasilitas yang tersedia di hotel Anda</p>
@@ -734,7 +782,47 @@ export default function HotelFullForm() {
                                                     placeholder="25 m²"
                                                 />
                                             </div>
-
+                                            
+                                            {/* 🔥 BARU: Input Foto Kamar - Ditempatkan di baris tersendiri untuk layout yang rapi */}
+                                            <div className="md:col-span-1">
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Foto Kamar Utama
+                                                </label>
+                                                {room.photoPreview ? (
+                                                    <div className="relative border border-gray-300 rounded-lg p-2">
+                                                        <img 
+                                                            src={room.photoPreview} 
+                                                            alt={`${room.name} Preview`} 
+                                                            className="w-full h-20 object-cover rounded-lg mb-2" 
+                                                        />
+                                                        <div className="text-right">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeRoomPhoto(room.id)}
+                                                                className="text-red-600 text-sm hover:text-red-800 transition-colors flex items-center gap-1 justify-end"
+                                                            >
+                                                                <X className="w-3 h-3" /> Hapus Foto
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 text-center cursor-pointer hover:border-blue-400 transition-colors">
+                                                        <input
+                                                            type="file"
+                                                            accept="image/jpeg,image/jpg,image/png,image/webp"
+                                                            onChange={(e) => handleRoomPhotoChange(room.id, e)}
+                                                            className="hidden"
+                                                            id={`room-photo-${room.id}`}
+                                                        />
+                                                        <label htmlFor={`room-photo-${room.id}`} className="block text-sm text-gray-500">
+                                                            <Camera className="w-5 h-5 text-gray-400 mx-auto mb-1" />
+                                                            Upload Foto
+                                                        </label>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {/* Akhir Input Foto Kamar */}
+                                            
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                                     Kapasitas Tamu
@@ -811,6 +899,7 @@ export default function HotelFullForm() {
                     </div>
 
                     {/* Lokasi */}
+                    {/* ... (JSX Lokasi) ... */}
                     <div className="bg-white rounded-2xl shadow-sm p-6">
                         <h2 className="text-2xl font-bold text-gray-800 mb-4">Lokasi Hotel (Opsional)</h2>
                         <p className="text-gray-600 mb-6">Tentukan koordinat lokasi hotel untuk memudahkan tamu menemukan</p>
@@ -863,6 +952,7 @@ export default function HotelFullForm() {
                     </div>
 
                     {/* Submit Button */}
+                    {/* ... (JSX Submit Button) ... */}
                     <div className="bg-white rounded-2xl shadow-sm p-6">
                         <div className="flex items-center justify-between">
                             <div className="text-sm text-gray-600">

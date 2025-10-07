@@ -3,15 +3,29 @@ import express from "express";
 import {
     getAllBusinesses,
     getRelatedBusinesses,
-    getBusinessById, 
-    createBusiness,  
-    uploadMedia,
-    updateBusiness,  
-    deleteBusiness,  
+    getBusinessById, 
+    createBusiness,    
+    uploadMedia,
+    updateBusiness,    
+    deleteBusiness,
+    deleteRoomPhoto, // 🔥 BARU
 } from "@/controllers/businessesDataController";
 import { upload } from "@/middleware/upload";
 
 const router = express.Router();
+
+// --- Konfigurasi Multer untuk Foto Kamar ---
+const MAX_ROOM_PHOTOS = 20; // Naikkan sesuai kebutuhan
+const roomPhotoFields = [];
+for (let i = 0; i < MAX_ROOM_PHOTOS; i++) {
+    roomPhotoFields.push({ name: `room_photo_${i}`, maxCount: 1 });
+}
+
+const businessMediaFields = [
+    { name: 'thumbnail_picture', maxCount: 1 },
+    { name: 'media_files', maxCount: 20 },
+    ...roomPhotoFields,
+];
 
 // --- ROUTE GET ---
 router.get("/related", getRelatedBusinesses);
@@ -20,34 +34,29 @@ router.get("/:id", getBusinessById);
 
 // --- ROUTE POST (Create Business) ---
 router.post(
-    "/", 
-    // Menggunakan upload.fields untuk thumbnail dan media galeri
-    upload.fields([
-        { name: 'thumbnail_picture', maxCount: 1 }, // Logo Hotel
-        { name: 'media_files', maxCount: 20 }     // Galeri Foto/Video
-    ]),
-    createBusiness // Memanggil fungsi createBusiness yang sudah dimodifikasi
+    "/", 
+    upload.fields(businessMediaFields as any),
+    createBusiness 
 );
 
 // --- ROUTE PUT (Update Business) ---
 router.put(
-    "/:id", 
-    // Hanya perlu thumbnail_picture untuk update, yang lainnya di-handle terpisah
-    upload.fields([
-        { name: 'thumbnail_picture', maxCount: 1 }, 
-    ]),
-    updateBusiness // Memanggil fungsi updateBusiness
+    "/:id", 
+    upload.fields(businessMediaFields as any),
+    updateBusiness 
 );
 
 // --- ROUTE POST (Upload Media Tambahan) ---
 router.post(
-    "/:id/media", 
-    upload.array("media_files", 50), // Bisa upload batch file ke galeri yang sudah ada
-    uploadMedia
+    "/:id/media", 
+    upload.array("media_files", 50),
+    uploadMedia
 );
 
-// --- ROUTE DELETE ---
+// --- ROUTE DELETE Business ---
 router.delete("/:id", deleteBusiness);
 
+// 🔥 ROUTE DELETE Room Photo (BARU)
+router.delete("/rooms/:roomId/photo", deleteRoomPhoto);
 
 export default router;

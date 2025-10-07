@@ -1,4 +1,4 @@
-// frontend/src/app/admin/businesses/edit/[id]/page.tsx
+// frontend/src/app/admin/businesses/edit/akomodasi/[id]/page.tsx
 
 'use client';
 
@@ -14,14 +14,14 @@ import {
 // --- INTERFACE BACKEND RESPONSE & STATE ---
 interface Category {
     id: number;
-    name: string; // Menggantikan nama
+    name: string;
     slug: string;
 }
 
 interface Subcategory {
     id: number;
-    category_id: number; // Menggantikan kategori_id
-    name: string; // Menggantikan nama
+    category_id: number;
+    name: string;
     slug: string;
 }
 
@@ -34,31 +34,31 @@ interface MediaFile {
 interface ExistingMedia {
     id: number; // business_media.id
     file_path: string; // business_media.file_path (URL/Path)
-    file_type: 'image' | 'video'; // Menggantikan media_type
+    file_type: 'image' | 'video';
 }
 
 interface Facility {
-    id: string; // Menggunakan NAME string sebagai ID untuk frontend toggle
+    id: string; // Menggunakan NAME string sebagai ID
     name: string; 
     icon: React.ElementType;
 }
 
 interface RoomType {
-    // Note: ID RoomType dari DB adalah number, tapi di state kita gunakan string untuk yang baru dibuat
     id: string | number; 
     name: string;
     description: string;
-    size_sqm: number; // Disesuaikan dengan DB
-    max_occupancy: number; // Disesuaikan dengan DB
+    size_sqm: number;
+    max_occupancy: number;
     bed_type: string;
     base_price: number;
-    image_url?: string;
+    image_url?: string;         // URL/Path foto yang sudah ada di DB
+    photoFile: File | null;     // File baru untuk diupload
+    photoPreview: string | null; // URL preview di frontend
 }
 
 interface BusinessData {
-    // Data utama dari tabel businesses
     id: number;
-    name: string; // businesses.name
+    name: string;
     address: string;
     description: string;
     phone: string;
@@ -66,25 +66,22 @@ interface BusinessData {
     website: string;
     latitude: number;
     longitude: number;
-    thumbnail_image: string; // businesses.thumbnail_image
+    thumbnail_image: string;
     
-    // Data ter-join (ID diganti slug/nama untuk form)
     category_slug: string; 
     subcategory_slug: string; 
 
-    // Data Relasional
-    media: ExistingMedia[]; // business_media
-    amenities: { name: string, icon: string }[]; // business_facilities JOIN facilities
-    room_types: RoomType[]; // room_types
-    // Asumsi jam operasional di-join di hours array (business_hours)
+    media: ExistingMedia[];
+    amenities: { name: string, icon: string }[];
+    room_types: RoomType[];
     hours: { day_of_week: number, open_time: string, close_time: string }[];
 }
 
 interface FormData {
     nama: string;
     alamat: string;
-    kategori: string; // slug kategori
-    subkategori: string; // slug subkategori
+    kategori: string;
+    subkategori: string;
     kontak: string;
     website: string;
     email: string;
@@ -99,7 +96,7 @@ interface FormData {
 export default function EditSubmissionForm() {
     const router = useRouter();
     const params = useParams();
-    const businessId = params?.id as string; // Menggunakan businessId
+    const businessId = params?.id as string;
 
     const [formData, setFormData] = useState<FormData>({
         nama: '', alamat: '', kategori: '', subkategori: '', kontak: '', website: '', 
@@ -121,18 +118,18 @@ export default function EditSubmissionForm() {
 
     // Data statis/default kategori (IDEALNYA DI-FETCH DARI /api/categories)
     const categories: Category[] = [
-        { id: 1, nama: 'Akomodasi', slug: 'akomodasi' },
-        { id: 2, nama: 'Wisata', slug: 'wisata' },
-        { id: 3, nama: 'Kuliner', slug: 'kuliner' },
+        { id: 1, name: 'Akomodasi', slug: 'akomodasi' },
+        { id: 2, name: 'Wisata', slug: 'wisata' },
+        { id: 3, name: 'Kuliner', slug: 'kuliner' },
     ];
 
     // Data subkategori (IDEALNYA DI-FETCH DARI /api/subcategories)
     const subcategories: Subcategory[] = [
-        { id: 1, category_id: 1, nama: 'Hotel Bintang 5', slug: 'hotel-bintang-5' },
-        { id: 2, category_id: 1, nama: 'Hotel Bintang 4', slug: 'hotel-bintang-4' },
-        { id: 3, category_id: 1, nama: 'Hotel Bintang 3', slug: 'hotel-bintang-3' },
-        { id: 11, category_id: 3, nama: 'Restoran', slug: 'restoran' },
-        { id: 12, category_id: 3, nama: 'Kafe', slug: 'kafe' },
+        { id: 1, category_id: 1, name: 'Hotel Bintang 5', slug: 'hotel-bintang-5' },
+        { id: 2, category_id: 1, name: 'Hotel Bintang 4', slug: 'hotel-bintang-4' },
+        { id: 3, category_id: 1, name: 'Hotel Bintang 3', slug: 'hotel-bintang-3' },
+        { id: 11, category_id: 3, name: 'Restoran', slug: 'restoran' },
+        { id: 12, category_id: 3, name: 'Kafe', slug: 'kafe' },
     ];
 
     // Data fasilitas (ID string harus sesuai dengan kolom 'name' di tabel FACILITIES)
@@ -163,6 +160,7 @@ export default function EditSubmissionForm() {
     const getMediaUrl = (path: string | undefined): string => {
         if (!path) return '';
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+        // Asumsi jika path tidak mengandung 'http', ia adalah path lokal
         return path.startsWith('http') ? path : `${apiUrl}/uploads/${path}`;
     };
 
@@ -174,7 +172,6 @@ export default function EditSubmissionForm() {
             setIsLoading(true);
             try {
                 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-                // Gunakan endpoint yang sudah kita buat: GET /api/businesses/:id
                 const response = await fetch(`${apiUrl}/api/businesses/${businessId}`);
                 
                 if (!response.ok) throw new Error('Gagal memuat data bisnis. Periksa ID.');
@@ -184,21 +181,19 @@ export default function EditSubmissionForm() {
                 if (result.success) {
                     const business: BusinessData = result.data;
 
-                    // 1. Set Form Data Utama (Mapping dari DB ke Form State)
+                    // 1. Set Form Data Utama
                     setFormData({
                         nama: business.name || '',
                         alamat: business.address || '',
-                        // Mapping slug kategori dari DB ke state form
                         kategori: business.category_slug || '', 
                         subkategori: business.subcategory_slug || '',
                         kontak: business.phone || '',
                         website: business.website || '',
                         email: business.email || '',
                         deskripsi: business.description || '',
-                        logo: null, // Logo file harus di-upload ulang, jadi di-set null
+                        logo: null,
                         latitude: business.latitude?.toString() || '',
                         longitude: business.longitude?.toString() || '',
-                        // Asumsi jam operasional di-join di business.hours
                         checkIn: business.hours?.[0]?.open_time?.substring(0, 5) || '14:00',
                         checkOut: business.hours?.[0]?.close_time?.substring(0, 5) || '12:00'
                     });
@@ -207,29 +202,29 @@ export default function EditSubmissionForm() {
                     if (business.thumbnail_image) {
                         setLogoPreview(getMediaUrl(business.thumbnail_image));
                     }
-                    if (business.media) setExistingMedia(business.media.map(m => ({
-                        id: m.id, media_path: getMediaUrl(m.file_path), media_type: m.file_type
-                    })));
+                    if (business.media) setExistingMedia(business.media);
 
                     // 3. Set Facilities
                     if (business.amenities) {
-                        // Mengambil NAME dari fasilitas yang tersedia (dari JOIN)
                         const selectedNames = business.amenities.map(a => a.name);
                         setSelectedFacilities(selectedNames);
                     }
                     
-                    // 4. Set Room Types
+                    // 4. Set Room Types (Diperbarui untuk mengakomodasi foto)
                     if (business.room_types) {
-                         setRoomTypes(business.room_types.map(room => ({
-                            // Mengonversi ID DB (number) ke string untuk kompatibilitas state ID
+                       setRoomTypes(business.room_types.map(room => ({
                             id: room.id.toString(), 
                             name: room.name,
                             description: room.description,
-                            size: `${room.size_sqm} m²`, // Format kembali ke string yang diharapkan form
+                            size: `${room.size_sqm || 0} m²`,
                             capacity: room.max_occupancy,
                             bedType: room.bed_type,
                             price: room.base_price,
-                        })));
+                            image_url: room.image_url, 
+                            // 🔥 BARU: Init state foto kamar
+                            photoFile: null,
+                            photoPreview: room.image_url ? getMediaUrl(room.image_url) : null,
+                        } as RoomType)));
                     }
                 }
             } catch (error) {
@@ -245,12 +240,11 @@ export default function EditSubmissionForm() {
     // --- AKHIR FETCH DATA ---
 
 
-    // --- HANDLERS (Umum) ---
+    // --- HANDLERS ---
     const handleInputChange = (field: keyof FormData, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }));
         if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
         
-        // Reset subkategori/relasi jika kategori berubah
         if (field === 'kategori' && value !== formData.kategori) {
             setFormData(prev => ({ ...prev, subkategori: '' }));
             setSelectedFacilities([]);
@@ -261,7 +255,7 @@ export default function EditSubmissionForm() {
     const handleLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
-        // ... (Validasi file) ...
+        // ... (Validasi file ditiadakan untuk keringkasan kode) ...
         setFormData(prev => ({ ...prev, logo: file }));
         setLogoPreview(URL.createObjectURL(file));
         setErrors(prev => ({ ...prev, logo: "" }));
@@ -288,11 +282,42 @@ export default function EditSubmissionForm() {
         );
     };
 
+    // 🔥 HANDLER BARU/UPDATE: Menangani upload foto untuk kamar spesifik
+    const handleRoomPhotoChange = (roomId: string | number, event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0] || null;
+        let previewUrl: string | null = null;
+
+        if (file) {
+            previewUrl = URL.createObjectURL(file);
+        }
+        
+        setRoomTypes(prev => prev.map(room => 
+            room.id === roomId 
+                ? { ...room, photoFile: file, photoPreview: previewUrl } 
+                : room
+        ));
+    };
+
+    // 🔥 HANDLER BARU/UPDATE: Menghapus foto kamar
+    const removeRoomPhoto = (roomId: string | number) => {
+        setRoomTypes(prev => prev.map(room => 
+            room.id === roomId 
+                ? { 
+                    ...room, 
+                    photoFile: null, 
+                    photoPreview: null,
+                    // Pertahankan image_url yang sudah ada di DB kecuali file baru di-upload
+                  } 
+                : room
+        ));
+    };
+
     const addRoomType = () => {
         setRoomTypes(prev => [...prev, {
             id: `new_room_${Date.now()}`, // Gunakan string ID sementara
             name: '', description: '', size: '', capacity: 2, bedType: '', price: 0,
-            size_sqm: 0, max_occupancy: 0, base_price: 0, image_url: '', bed_type: ''
+            size_sqm: 0, max_occupancy: 0, base_price: 0, image_url: '', bed_type: '',
+            photoFile: null, photoPreview: null // 🔥 BARU: State foto default
         }]);
     };
 
@@ -304,14 +329,11 @@ export default function EditSubmissionForm() {
 
     const removeRoomType = (roomId: string | number) => {
         setRoomTypes(prev => prev.filter(room => room.id !== roomId));
-        // NOTE: Untuk PUT, Anda mungkin perlu logic untuk menandai kamar lama yang dihapus jika room.id adalah number
-        // Saat ini, kita asumsikan backend akan menghapus semua room_types yang tidak dikirim dan membuat yang baru.
     };
 
     const validateForm = (): boolean => {
         const newErrors: Record<string, string> = {};
         if (!formData.nama.trim()) newErrors.nama = 'Nama wajib diisi';
-        // ... [LOGIC VALIDASI LAINNYA] ...
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -336,24 +358,38 @@ export default function EditSubmissionForm() {
         // 2. Append Relational Data (Facilities & Rooms)
         if (isAkomodasi) {
             data.append('selectedFacilities', JSON.stringify(selectedFacilities));
+            
             // Map roomTypes ke format yang diterima backend:
             const processedRooms = roomTypes.map(room => ({
-                // Hanya kirim kolom DB yang diperlukan
                 id: typeof room.id === 'number' ? room.id : undefined,
                 name: room.name,
                 description: room.description,
-                size_sqm: parseInt(room.size.replace(/\D/g, '') || '0'), 
+                // Pastikan size di parse ke numerik (size_sqm)
+                size_sqm: parseFloat(room.size.replace(/[^\d.]/g, '') || '0'), 
                 max_occupancy: room.capacity,
                 bed_type: room.bedType,
                 base_price: room.price,
+                // Jika tidak ada file baru diupload, pertahankan URL yang sudah ada.
+                // Backend akan memprioritaskan file yang dikirim via FormData.
+                image_url: !room.photoFile && room.image_url ? room.image_url : undefined 
             }));
             data.append('roomTypes', JSON.stringify(processedRooms));
         }
 
-        // 3. Append Media (New & Removed)
+        // 3. Append Media Bisnis
         if (formData.logo) data.append('thumbnail_picture', formData.logo);
         newMedia.forEach(media => data.append('media_files', media.file));
         if (removedMediaIds.length > 0) data.append('removed_media_ids', JSON.stringify(removedMediaIds));
+
+        // 🔥 BARU: Data File Kamar (Satu per kamar)
+        roomTypes.forEach((room, index) => {
+            if (room.photoFile) {
+                // Gunakan fieldname unik: room_photo_index
+                data.append(`room_photo_${index}`, room.photoFile); 
+                // Kirim ID room agar backend tahu kamar mana yang di-update fotonya
+                data.append(`room_photo_id_${index}`, room.id.toString());
+            }
+        });
 
         try {
             const response = await fetch(`${apiUrl}/api/businesses/${businessId}`, {
@@ -377,6 +413,7 @@ export default function EditSubmissionForm() {
 
 
     if (isLoading) {
+        // ... (Loading JSX) ...
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
@@ -461,7 +498,6 @@ export default function EditSubmissionForm() {
                                     {errors.nama && (<p className="text-sm text-red-600 mt-1 flex items-center gap-1"><AlertCircle className="w-4 h-4" />{errors.nama}</p>)}
                                 </div>
                                 
-                                {/* Kategori */}
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                                         Kategori <span className="text-red-500">*</span>
@@ -472,13 +508,12 @@ export default function EditSubmissionForm() {
                                         className={`w-full p-4 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none ${errors.kategori ? 'border-red-300' : 'border-gray-300'}`}
                                     >
                                         <option value="">Pilih Kategori</option>
-                                        {categories.map(cat => (<option key={cat.id} value={cat.slug}>{cat.nama}</option>))}
+                                        {categories.map(cat => (<option key={cat.id} value={cat.slug}>{cat.name}</option>))}
                                     </select>
                                     {errors.kategori && (<p className="text-sm text-red-600 mt-1 flex items-center gap-1"><AlertCircle className="w-4 h-4" />{errors.kategori}</p>)}
                                 </div>
                             </div>
 
-                            {/* Subkategori & Alamat */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -493,7 +528,7 @@ export default function EditSubmissionForm() {
                                         <option value="">
                                             {formData.kategori ? 'Pilih Subkategori' : 'Pilih kategori terlebih dahulu'}
                                         </option>
-                                        {filteredSubcategories.map(sub => (<option key={sub.id} value={sub.slug}>{sub.nama}</option>))}
+                                        {filteredSubcategories.map(sub => (<option key={sub.id} value={sub.slug}>{sub.name}</option>))}
                                     </select>
                                     {errors.subkategori && (<p className="text-sm text-red-600 mt-1 flex items-center gap-1"><AlertCircle className="w-4 h-4" />{errors.subkategori}</p>)}
                                 </div>
@@ -605,7 +640,7 @@ export default function EditSubmissionForm() {
                                     {/* Media Existing */}
                                     {existingMedia.map((media) => (
                                         <div key={media.id} className="relative group">
-                                            <NextImage src={media.media_path} alt="" width={64} height={64} className="w-full h-16 object-cover rounded-lg" />
+                                            <NextImage src={getMediaUrl(media.file_path)} alt="" width={64} height={64} className="w-full h-16 object-cover rounded-lg" />
                                             <button type="button" onClick={() => {setRemovedMediaIds(prev => [...prev, media.id]); setExistingMedia(prev => prev.filter(m => m.id !== media.id));}} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-3 h-3" /></button>
                                         </div>
                                     ))}
@@ -661,13 +696,55 @@ export default function EditSubmissionForm() {
                                         <div key={room.id} className="border border-gray-200 rounded-xl p-4 space-y-3">
                                             <div className="flex items-center justify-between"><h3 className="text-lg font-medium text-gray-800">Kamar #{index + 1}</h3>
                                             <button type="button" onClick={() => removeRoomType(room.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"><X className="w-4 h-4" /></button></div>
+                                            
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div><label className="block text-sm font-medium text-gray-700 mb-1">Nama Kamar *</label>
                                                 <input type="text" value={room.name} onChange={(e) => updateRoomType(room.id, 'name', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Superior Room" /></div>
                                                 
                                                 <div><label className="block text-sm font-medium text-gray-700 mb-1">Ukuran Kamar</label>
                                                 <input type="text" value={room.size} onChange={(e) => updateRoomType(room.id, 'size', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="25 m²" /></div>
-
+                                                
+                                                {/* 🔥 Input Foto Kamar */}
+                                                <div className="md:col-span-1">
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                        Foto Kamar Utama
+                                                    </label>
+                                                    {room.photoPreview ? (
+                                                        <div className="relative border border-gray-300 rounded-lg p-2">
+                                                            <NextImage 
+                                                                src={room.photoPreview} 
+                                                                alt={`${room.name} Preview`} 
+                                                                width={100} height={80}
+                                                                className="w-full h-20 object-cover rounded-lg mb-2" 
+                                                            />
+                                                            <div className="text-right">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeRoomPhoto(room.id)}
+                                                                    className="text-red-600 text-sm hover:text-red-800 transition-colors flex items-center gap-1 justify-end"
+                                                                >
+                                                                    <X className="w-3 h-3" /> Hapus Foto
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 text-center cursor-pointer hover:border-blue-400 transition-colors">
+                                                            <input
+                                                                type="file"
+                                                                accept="image/jpeg,image/jpg,image/png,image/webp"
+                                                                onChange={(e) => handleRoomPhotoChange(room.id, e)}
+                                                                className="hidden"
+                                                                id={`room-photo-${room.id}`}
+                                                            />
+                                                            <label htmlFor={`room-photo-${room.id}`} className="block text-sm text-gray-500">
+                                                                <Camera className="w-5 h-5 text-gray-400 mx-auto mb-1" />
+                                                                Upload Foto
+                                                            </label>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {/* Akhir Input Foto Kamar */}
+                                                
                                                 <div><label className="block text-sm font-medium text-gray-700 mb-1">Kapasitas Tamu</label>
                                                 <div className="flex items-center gap-2">
                                                     <button type="button" onClick={() => updateRoomType(room.id, 'capacity', Math.max(1, room.capacity - 1))} className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50"><Minus className="w-4 h-4" /></button>
@@ -681,7 +758,16 @@ export default function EditSubmissionForm() {
                                                 </select></div>
 
                                                 <div><label className="block text-sm font-medium text-gray-700 mb-1">Harga per Malam (IDR)</label>
-                                                <input type="number" value={room.price} onChange={(e) => updateRoomType(room.id, 'price', parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="500000" /></div>
+                                                {/* 🔥 Perbaikan Input Harga */}
+                                                <input 
+                                                    type="text" 
+                                                    pattern="[0-9]*"
+                                                    value={room.price} 
+                                                    onChange={(e) => updateRoomType(room.id, 'price', parseFloat(e.target.value.replace(/[^0-9]/g, '')) || 0)} 
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 hide-number-spinner" 
+                                                    placeholder="500000" 
+                                                />
+                                                </div>
 
                                                 <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Deskripsi Kamar</label>
                                                 <textarea value={room.description} onChange={(e) => updateRoomType(room.id, 'description', e.target.value)} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="Deskripsi singkat tentang kamar ini..." /></div>
@@ -692,7 +778,7 @@ export default function EditSubmissionForm() {
                             )}
                         </div>
                     )}
-
+                    
                     {/* Lokasi */}
                     <div className="bg-white rounded-2xl shadow-sm p-6">
                         <h2 className="text-2xl font-bold text-gray-800 mb-4">Lokasi (GPS)</h2>
@@ -715,6 +801,18 @@ export default function EditSubmissionForm() {
                     </div>
                 </form>
             </div>
+            
+            {/* Style untuk menyembunyikan spinner number input */}
+            <style jsx global>{`
+                .hide-number-spinner::-webkit-outer-spin-button,
+                .hide-number-spinner::-webkit-inner-spin-button {
+                    -webkit-appearance: none;
+                    margin: 0;
+                }
+                .hide-number-spinner[type=number] {
+                    -moz-appearance: textfield;
+                }
+            `}</style>
         </div>
     );
 }

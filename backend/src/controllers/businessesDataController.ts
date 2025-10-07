@@ -5,16 +5,25 @@ import { query, getConnection } from "@/config/database";
 import { FieldPacket, ResultSetHeader } from 'mysql2';
 import { promisify } from 'util';
 import fs from 'fs';
+import path from 'path';
 import slugify from 'slugify'; 
 
-// Helper function to delete files (diasumsikan path file adalah properti 'path' dari Multer File)
 const unlinkAsync = promisify(fs.unlink);
 
-// --- HELPER FUNCTION ---
-// CATATAN: Secara implisit merujuk ke tabel 'facilities'
+// Helper function untuk delete file
+const deleteFile = async (filePath: string) => {
+    try {
+        const fullPath = path.join(__dirname, '../../uploads', filePath);
+        if (fs.existsSync(fullPath)) {
+            await unlinkAsync(fullPath);
+        }
+    } catch (err) {
+        console.error('Error deleting file:', err);
+    }
+};
+
 const findAmenityIdsBySlug = async (slugs: string[], connection: any): Promise<number[]> => {
     if (slugs.length === 0) return [];
-    // Query disesuaikan ke tabel 'facilities' (sebelumnya 'amenities')
     const [facilitiesResult] = await connection.query(
         "SELECT id FROM facilities WHERE name IN (?)", 
         [slugs] 
@@ -22,15 +31,10 @@ const findAmenityIdsBySlug = async (slugs: string[], connection: any): Promise<n
     return (facilitiesResult as any[]).map(r => r.id);
 };
 
-// ----------------------------------------------------------------------------------
-
 // ✅ GET all businesses 
 export const getAllBusinesses = async (req: Request, res: Response) => {
     try {
-        // Asumsi `query` mengembalikan array deconstructed: [rows, fields]
         const [rows] = await query("SELECT * FROM business_with_category ORDER BY created_at DESC");
-
-        // Memastikan data dikirim sebagai array
         const dataToSend = Array.isArray(rows) ? rows : (rows ? [rows] : []);
 
         return res.json({
@@ -46,9 +50,7 @@ export const getAllBusinesses = async (req: Request, res: Response) => {
     }
 };
 
-// ----------------------------------------------------------------------------------
-
-// ✅ GET single business by Id (dengan JOIN komprehensif)
+// ✅ GET single business by Id
 export const getBusinessById = async (req: Request, res: Response) => {
     const BUSINESS_ID = req.params.id;
     let connection;
@@ -57,7 +59,6 @@ export const getBusinessById = async (req: Request, res: Response) => {
         connection = await getConnection();
         await connection.beginTransaction();
 
-        // 1. Ambil data utama dari VIEW (untuk nama kategori, rating, dll.)
         const [businessRows] = await connection.query("SELECT * FROM business_with_category WHERE id = ?", [BUSINESS_ID]);
         const business = (businessRows as any[])[0];
 
@@ -66,13 +67,9 @@ export const getBusinessById = async (req: Request, res: Response) => {
             return res.status(404).json({ success: false, error: "Business not found" });
         }
         
-        // 2. Ambil data relasi 
-        
-        // Relasi Media
         const [media] = await connection.query("SELECT id, file_path, file_type, caption FROM business_media WHERE business_id = ?", [BUSINESS_ID]);
         business.media = Array.isArray(media) ? media : []; 
 
-        // Relasi Fasilitas (JOIN facilities)
         const [facilities] = await connection.query(`
             SELECT t1.facility_id, t2.name, t2.icon, t1.is_available 
             FROM business_facilities t1 
@@ -80,42 +77,30 @@ export const getBusinessById = async (req: Request, res: Response) => {
             WHERE t1.business_id = ?`, 
             [BUSINESS_ID]
         );
-        // NAMA TABEL DAN KOLOM TELAH DISESUAIKAN: business_facilities dan facilities
-        business.amenities = Array.isArray(facilities) ? facilities : []; // Tetap beri nama 'amenities' di JSON untuk frontend
+        business.amenities = Array.isArray(facilities) ? facilities : [];
 
-        // Relasi Kamar (Jika ada)
         const [room_types] = await connection.query("SELECT * FROM room_types WHERE business_id = ?", [BUSINESS_ID]);
         business.room_types = Array.isArray(room_types) ? room_types : [];
 
-        // Relasi Jam Operasional (Opsional, tapi penting)
         const [hours] = await connection.query("SELECT day_of_week, is_open, open_time, close_time FROM business_hours WHERE business_id = ?", [BUSINESS_ID]);
         business.hours = Array.isArray(hours) ? hours : [];
-
 
         await connection.commit();
         return res.json({
             success: true,
-            data: business, // Mengirim objek tunggal dengan semua relasi ter-join
+            data: business,
         });
     } catch (error) {
         console.error("CRITICAL SQL ERROR in getBusinessById:", error);
-        
-        if (connection) {
-            await connection.rollback();
-            // PENTING: Koneksi dilepas di finally
-        }
+        if (connection) await connection.rollback();
         return res.status(500).json({
             success: false,
             error: "Internal server error during data retrieval.",
         });
     } finally {
-        if (connection) {
-             connection.release();
-        }
+        if (connection) connection.release();
     }
 };
-
-// ----------------------------------------------------------------------------------
 
 // ✅ GET related businesses
 export const getRelatedBusinesses = async (req: Request, res: Response) => {
@@ -150,9 +135,7 @@ export const getRelatedBusinesses = async (req: Request, res: Response) => {
     }
 };
 
-// ----------------------------------------------------------------------------------
-
-// ✅ POST create business (Akomodasi)
+// ✅ POST create business
 export const createBusiness = async (req: Request, res: Response) => {
     const connection = await getConnection();
     await connection.beginTransaction();
@@ -174,7 +157,7 @@ export const createBusiness = async (req: Request, res: Response) => {
         const parsedFacilities: string[] = JSON.parse(selectedFacilities || '[]');
         const parsedRoomTypes: any[] = JSON.parse(roomTypesJson || '[]');
         
-        const CATEGORY_ID = 1; // Akomodasi
+        const CATEGORY_ID = 1;
         const SLUG = slugify(nama, { lower: true, strict: true });
         
         if (!nama || !alamat || !subkategori) {
@@ -191,7 +174,6 @@ export const createBusiness = async (req: Request, res: Response) => {
         const thumbnailFile = uploadedFiles?.thumbnail_picture?.[0];
         const thumbnailPath = thumbnailFile ? thumbnailFile.filename : null; 
 
-        // 1. INSERT ke TABEL UTAMA: businesses
         const insertBusinessQuery = `
             INSERT INTO businesses 
             (name, slug, description, address, phone, email, website, thumbnail_image, latitude, longitude, category_id, subcategory_id, status) 
@@ -204,7 +186,6 @@ export const createBusiness = async (req: Request, res: Response) => {
         ]);
         const BUSINESS_ID = (businessResult as ResultSetHeader).insertId;
         
-        // 2. INSERT ke TABEL business_hours
         const hoursData = [];
         for (let day = 0; day <= 6; day++) {
             hoursData.push([BUSINESS_ID, day, true, checkIn, checkOut]); 
@@ -216,31 +197,43 @@ export const createBusiness = async (req: Request, res: Response) => {
             );
         }
 
-        // 3. INSERT ke TABEL business_facilities (DISESUAIKAN)
         const facilityIds = await findAmenityIdsBySlug(parsedFacilities, connection);
         const facilityData = facilityIds.map(facilityId => [BUSINESS_ID, facilityId, true]);
         
         if (facilityData.length > 0) {
             await connection.query(
-                `INSERT INTO business_facilities (business_id, facility_id, is_available) VALUES ?`, // DISESUAIKAN
+                `INSERT INTO business_facilities (business_id, facility_id, is_available) VALUES ?`,
                 [facilityData]
             );
         }
 
-        // 4. INSERT ke TABEL room_types
-        const roomTypeData = parsedRoomTypes.map(room => [
-            BUSINESS_ID, room.name, room.description, parseInt(room.size.replace(/\D/g, '') || 0), 
-            room.capacity, room.bedType, parseFloat(room.price) || 0
-        ]);
+        // 🔥 INSERT room_types dengan foto
+        if (parsedRoomTypes.length > 0) {
+            for (let i = 0; i < parsedRoomTypes.length; i++) {
+                const room = parsedRoomTypes[i];
+                const roomPhotoKey = `room_photo_${i}`;
+                const roomPhotoFile = uploadedFiles[roomPhotoKey]?.[0];
+                const roomPhotoPath = roomPhotoFile ? roomPhotoFile.filename : null;
 
-        if (roomTypeData.length > 0) {
-            await connection.query(
-                `INSERT INTO room_types (business_id, name, description, size_sqm, max_occupancy, bed_type, base_price) VALUES ?`,
-                [roomTypeData]
-            );
+                if (roomPhotoFile) allUploadedPaths.push(roomPhotoFile.path);
+
+                const [roomResult] = await connection.query(
+                    `INSERT INTO room_types (business_id, name, description, size_sqm, max_occupancy, bed_type, base_price, photo) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        BUSINESS_ID, 
+                        room.name, 
+                        room.description, 
+                        parseInt(room.size?.replace(/\D/g, '') || '0'), 
+                        room.capacity, 
+                        room.bedType, 
+                        parseFloat(room.price) || 0,
+                        roomPhotoPath
+                    ]
+                );
+            }
         }
 
-        // 5. INSERT ke TABEL business_media
         const mediaFiles = uploadedFiles?.media_files || [];
         if (mediaFiles.length > 0) {
             const mediaValues = mediaFiles.map((file: Express.Multer.File) => [
@@ -264,7 +257,7 @@ export const createBusiness = async (req: Request, res: Response) => {
 
     } catch (error) {
         allUploadedPaths.forEach(path => {
-            try { unlinkAsync(path); } catch(err) {/* ignore */}
+            try { unlinkAsync(path); } catch(err) {}
         });
         
         await connection.rollback();
@@ -279,9 +272,7 @@ export const createBusiness = async (req: Request, res: Response) => {
     }
 };
 
-// ----------------------------------------------------------------------------------
-
-// ✅ POST upload media for a specific business
+// ✅ POST upload media
 export const uploadMedia = async (req: Request, res: Response) => {
     const connection = await getConnection();
     await connection.beginTransaction();
@@ -319,7 +310,7 @@ export const uploadMedia = async (req: Request, res: Response) => {
         });
 
     } catch (error) {
-        if (files) files.forEach((file: any) => { try { unlinkAsync(file.path); } catch(err) {/* ignore */}});
+        if (files) files.forEach((file: any) => { try { unlinkAsync(file.path); } catch(err) {}});
 
         await connection.rollback();
         console.error("Error uploading media:", error);
@@ -332,79 +323,221 @@ export const uploadMedia = async (req: Request, res: Response) => {
     }
 };
 
-// ----------------------------------------------------------------------------------
-
 // ✅ PUT update business
 export const updateBusiness = async (req: Request, res: Response) => {
-    // ... (Logika tidak berubah, tapi menggunakan nama kolom yang benar)
+    const connection = await getConnection();
+    await connection.beginTransaction();
+
+    const uploadedFiles = req.files as { [fieldname: string]: Express.Multer.File[] };
+    const allUploadedPaths: string[] = [];
+
     try {
         const { id } = req.params;
         const { 
-            nama, email, alamat, kategori, subkategori, deskripsi, kontak, website, latitude, longitude
+            nama, email, alamat, kategori, subkategori, deskripsi, kontak, website, latitude, longitude,
+            roomTypes: roomTypesJson
         } = req.body;
-        const file = (req as any).file;
-        
-        const thumbnailPath = file ? file.filename : null;
 
+        // Validasi category_id dan subcategory_id
+        if (kategori) {
+            const [categories] = await connection.query('SELECT id FROM categories WHERE id = ?', [kategori]);
+            if ((categories as any[]).length === 0) {
+                throw new Error('Category ID tidak valid atau tidak ditemukan');
+            }
+        }
+
+        if (subkategori) {
+            const [subcategories] = await connection.query('SELECT id FROM subcategories WHERE id = ?', [subkategori]);
+            if ((subcategories as any[]).length === 0) {
+                throw new Error('Subcategory ID tidak valid atau tidak ditemukan');
+            }
+        }
+
+        const thumbnailFile = uploadedFiles?.thumbnail_picture?.[0];
+        const thumbnailPath = thumbnailFile ? thumbnailFile.filename : null;
+
+        if (thumbnailFile) allUploadedPaths.push(thumbnailFile.path);
+
+        // Update business utama
         const updateQuery = `
-        UPDATE businesses 
-        SET name = ?, email = ?, address = ?, category_id = ?, subcategory_id = ?, 
-            description = ?, phone = ?, website = ?, thumbnail_image = COALESCE(?, thumbnail_image), 
-            latitude = ?, longitude = ?, updated_at = NOW()
-        WHERE id = ?
+            UPDATE businesses 
+            SET name = ?, email = ?, address = ?, category_id = ?, subcategory_id = ?, 
+                description = ?, phone = ?, website = ?, thumbnail_image = COALESCE(?, thumbnail_image), 
+                latitude = ?, longitude = ?, updated_at = NOW()
+            WHERE id = ?
         `;
 
-        const [result] = await query(updateQuery, [
+        const [result] = await connection.query(updateQuery, [
             nama, email, alamat, kategori, subkategori, 
             deskripsi, kontak, website, thumbnailPath,
-            latitude, longitude,
-            id,
+            latitude, longitude, id
         ]);
 
         if ((result as ResultSetHeader).affectedRows === 0) {
-            return res.status(404).json({
-                success: false,
-                error: "Business not found",
-            });
+            throw new Error("Business not found");
         }
+
+        // 🔥 UPDATE room_types dengan foto
+        if (roomTypesJson) {
+            const parsedRoomTypes: any[] = JSON.parse(roomTypesJson);
+
+            for (let i = 0; i < parsedRoomTypes.length; i++) {
+                const room = parsedRoomTypes[i];
+                const roomPhotoKey = `room_photo_${i}`;
+                const roomPhotoFile = uploadedFiles[roomPhotoKey]?.[0];
+                const roomPhotoPath = roomPhotoFile ? roomPhotoFile.filename : null;
+
+                if (roomPhotoFile) allUploadedPaths.push(roomPhotoFile.path);
+
+                if (room.id) {
+                    // Update existing room
+                    // Hapus foto lama jika ada foto baru
+                    if (roomPhotoPath) {
+                        const [oldRoom] = await connection.query('SELECT photo FROM room_types WHERE id = ?', [room.id]);
+                        const oldPhoto = (oldRoom as any[])[0]?.photo;
+                        if (oldPhoto) await deleteFile(oldPhoto);
+                    }
+
+                    await connection.query(
+                        `UPDATE room_types 
+                         SET name = ?, description = ?, size_sqm = ?, max_occupancy = ?, bed_type = ?, base_price = ?, photo = COALESCE(?, photo)
+                         WHERE id = ? AND business_id = ?`,
+                        [
+                            room.name, 
+                            room.description, 
+                            parseInt(room.size?.replace(/\D/g, '') || '0'), 
+                            room.capacity, 
+                            room.bedType, 
+                            parseFloat(room.price) || 0,
+                            roomPhotoPath,
+                            room.id,
+                            id
+                        ]
+                    );
+                } else {
+                    // Insert new room
+                    await connection.query(
+                        `INSERT INTO room_types (business_id, name, description, size_sqm, max_occupancy, bed_type, base_price, photo) 
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [
+                            id,
+                            room.name, 
+                            room.description, 
+                            parseInt(room.size?.replace(/\D/g, '') || '0'), 
+                            room.capacity, 
+                            room.bedType, 
+                            parseFloat(room.price) || 0,
+                            roomPhotoPath
+                        ]
+                    );
+                }
+            }
+        }
+
+        await connection.commit();
 
         return res.json({
             success: true,
             message: "Business updated successfully",
         });
     } catch (error) {
+        allUploadedPaths.forEach(path => {
+            try { unlinkAsync(path); } catch(err) {}
+        });
+
+        await connection.rollback();
         console.error("Error updating business:", error);
         return res.status(500).json({
             success: false,
-            error: "Failed to update business",
+            error: (error as Error).message || "Failed to update business",
         });
+    } finally {
+        connection.release();
     }
 };
 
-// ----------------------------------------------------------------------------------
-
 // ✅ DELETE business
 export const deleteBusiness = async (req: Request, res: Response) => {
+    const connection = await getConnection();
+    await connection.beginTransaction();
+
     try {
         const { id } = req.params;
-        const [result] = await query("DELETE FROM businesses WHERE id = ?", [id]);
+
+        // Hapus foto thumbnail
+        const [business] = await connection.query('SELECT thumbnail_image FROM businesses WHERE id = ?', [id]);
+        const thumbnail = (business as any[])[0]?.thumbnail_image;
+        if (thumbnail) await deleteFile(thumbnail);
+
+        // Hapus foto room types
+        const [rooms] = await connection.query('SELECT photo FROM room_types WHERE business_id = ?', [id]);
+        for (const room of rooms as any[]) {
+            if (room.photo) await deleteFile(room.photo);
+        }
+
+        // Hapus business media
+        const [media] = await connection.query('SELECT file_path FROM business_media WHERE business_id = ?', [id]);
+        for (const m of media as any[]) {
+            if (m.file_path) await deleteFile(m.file_path);
+        }
+
+        // Delete dari database (cascade akan handle relasi)
+        const [result] = await connection.query("DELETE FROM businesses WHERE id = ?", [id]);
 
         if ((result as ResultSetHeader).affectedRows === 0) {
-            return res.status(404).json({
-                success: false,
-                error: "Business not found",
-            });
+            throw new Error("Business not found");
         }
+
+        await connection.commit();
 
         return res.json({
             success: true,
             message: "Business deleted successfully",
         });
     } catch (error) {
+        await connection.rollback();
         console.error("Error deleting business:", error);
         return res.status(500).json({
             success: false,
-            error: "Failed to delete business",
+            error: (error as Error).message || "Failed to delete business",
         });
+    } finally {
+        connection.release();
+    }
+};
+
+// 🔥 DELETE room photo (endpoint baru)
+export const deleteRoomPhoto = async (req: Request, res: Response) => {
+    const connection = await getConnection();
+    await connection.beginTransaction();
+
+    try {
+        const { roomId } = req.params;
+
+        const [room] = await connection.query('SELECT photo FROM room_types WHERE id = ?', [roomId]);
+        const photo = (room as any[])[0]?.photo;
+
+        if (!photo) {
+            throw new Error("Room has no photo");
+        }
+
+        await deleteFile(photo);
+        await connection.query('UPDATE room_types SET photo = NULL WHERE id = ?', [roomId]);
+
+        await connection.commit();
+
+        return res.json({
+            success: true,
+            message: "Room photo deleted successfully",
+        });
+    } catch (error) {
+        await connection.rollback();
+        console.error("Error deleting room photo:", error);
+        return res.status(500).json({
+            success: false,
+            error: (error as Error).message || "Failed to delete room photo",
+        });
+    } finally {
+        connection.release();
     }
 };
