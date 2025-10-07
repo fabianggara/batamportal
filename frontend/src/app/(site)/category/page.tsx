@@ -159,7 +159,7 @@ export default async function AllCategoriesPage() {
         </section>
 
         {/* Other Categories */}
-        <section>
+        {/* <section>
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-800 mb-4">Kategori Lainnya</h2>
             <p className="text-gray-600">Eksplorasi lebih banyak pilihan menarik</p>
@@ -201,7 +201,7 @@ export default async function AllCategoriesPage() {
               );
             })}
           </div>
-        </section>
+        </section> */}
 
         {/* Statistics */}
         <section className="bg-white rounded-3xl p-8 shadow-lg">
