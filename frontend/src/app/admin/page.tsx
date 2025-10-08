@@ -1,23 +1,15 @@
+
+"use client";
+
 import Link from "next/link";
+import { useRouter } from 'next/navigation';
 import { 
-    BarChart3, 
-    Users, 
-    Building2, 
-    Plus, 
-    TrendingUp, 
-    Eye, 
-    Star,
-    MapPin,
-    Calendar,
-    Activity,
-    ArrowUpRight,
-    ArrowDownRight,
-    MoreVertical,
-    Bell,
-    Search
+    BarChart3, Users, Building2, Star, MapPin, Activity, ArrowUpRight, ArrowDownRight,
+    MoreVertical, Bell, Search, Earth
     } from "lucide-react";
 
     export default function AdminPage() {
+        const router = useRouter();
     // Sample data untuk dashboard
     const stats = [
         {
@@ -159,21 +151,21 @@ import {
                 </div>
                 
                 {/* Notifications */}
-                <button className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                <Bell className="w-6 h-6" />
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    3
-                </span>
+                <button className="relative p-2 text-gray-600 hover:bg-red-400 rounded-lg transition-colors">
+                    <Bell className="w-6 h-6" />
+                {/* <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    
+                </span> */}
                 </button>
                 
                 {/* Quick Action Button */}
-                {/* <Link
-                href="/form"
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
+                <button
+                    onClick={() => router.push(`/`)}
+                    className=" flex items-center gap-1 p-2 hover:bg-blue-400 hover:text-blue-900 rounded-full transition-colors"
                 >
-                <Plus className="w-5 h-5" />
-                <span>Tambah Data</span>
-                </Link> */}
+                        <Earth className="w-5 h-5" />
+                    <p>Public Page</p>
+                </button>
             </div>
             </div>
 

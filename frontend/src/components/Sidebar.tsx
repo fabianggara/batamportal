@@ -47,13 +47,13 @@ export default function Sidebar() {
             badge: null,
             description: "User Management"
         },
-        {
-            title: "Public",
-            href: "/",
-            icon: Earth,
-            badge: null,
-            description: "Public Views"
-        },
+        // {
+        //     title: "Public",
+        //     href: "/",
+        //     icon: Earth,
+        //     badge: null,
+        //     description: "Public Views"
+        // },
         {
             title: "Reviews",
             href: "/admin/reviews",

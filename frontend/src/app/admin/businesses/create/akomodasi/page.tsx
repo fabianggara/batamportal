@@ -4,6 +4,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+// import Image from 'next/image';
 import { 
     ArrowLeft, Building2, MapPin, Phone, Globe, Upload, Mail, AlertCircle,
     Loader2, X, Camera, Wifi, Car, Waves, Dumbbell, Coffee, Utensils, AirVent, Tv,
@@ -334,6 +335,60 @@ export default function HotelFullForm() {
 
     if (showSuccess) {
         // ... (Success Screen JSX) ...
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 text-center">
+                    {/* Success Icon */}
+                    <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
+                        <Check className="h-8 w-8 text-green-600" />
+                    </div>
+
+                    {/* Success Message */}
+                    <h2 className="text-2xl font-bold text-gray-900 mb-3">
+                        Bisnis Anda Sudah Terdaftar!
+                    </h2>
+                    <p className="text-gray-600 mb-8">
+                        Hotel/akomodasi <strong>{formData.nama}</strong> berhasil ditambahkan ke dalam sistem.
+                    </p>
+
+                    {/* Action Buttons */}
+                    <div className="space-y-3">
+                        <button
+                            onClick={() => router.push('/admin/businesses')}
+                            className="w-full px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                            <Building2 className="w-5 h-5" />
+                            Lihat Daftar Bisnis
+                        </button>
+                        
+                        <button
+                            onClick={() => {
+                                setShowSuccess(false);
+                                // Reset form
+                                setFormData({
+                                    nama: '', alamat: '', kategori: 'akomodasi', subkategori: '', 
+                                    kontak: '', website: '', email: '', deskripsi: '', logo: null, 
+                                    latitude: '', longitude: '', checkIn: '14:00', checkOut: '12:00'
+                                });
+                                setLogoPreview(null);
+                                setMediaFiles([]);
+                                setSelectedFacilities([]);
+                                setRoomTypes([]);
+                            }}
+                            className="w-full px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                        >
+                            <Plus className="w-5 h-5" />
+                            Daftarkan Bisnis Lain
+                        </button>
+                    </div>
+
+                    {/* Additional Info */}
+                    <p className="text-sm text-gray-500 mt-6">
+                        Data bisnis akan muncul di halaman daftar bisnis dalam beberapa saat
+                    </p>
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -784,7 +839,7 @@ export default function HotelFullForm() {
                                             </div>
                                             
                                             {/* 🔥 BARU: Input Foto Kamar - Ditempatkan di baris tersendiri untuk layout yang rapi */}
-                                            <div className="md:col-span-1">
+                                            {/* <div className="md:col-span-1">
                                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                                     Foto Kamar Utama
                                                 </label>
@@ -820,7 +875,7 @@ export default function HotelFullForm() {
                                                         </label>
                                                     </div>
                                                 )}
-                                            </div>
+                                            </div> */}
                                             {/* Akhir Input Foto Kamar */}
                                             
                                             <div>
@@ -846,6 +901,44 @@ export default function HotelFullForm() {
                                                         <Plus className="w-4 h-4" />
                                                     </button>
                                                 </div>
+                                            </div>
+
+                                                                                            {/* 🔥 BARU: Input Foto Kamar */}
+                                            <div className="md:col-span-2">
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Foto Kamar
+                                                </label>
+                                                {room.photoPreview ? (
+                                                    <div className="relative border border-gray-300 rounded-lg p-2">
+                                                        <img 
+                                                            src={room.photoPreview} 
+                                                            alt={`${room.name} Preview`} 
+                                                            className="w-full h-32 object-cover rounded-lg mb-2" 
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeRoomPhoto(room.id)}
+                                                            className="absolute top-3 right-3 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 transition-colors shadow-lg"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                                                        <input
+                                                            type="file"
+                                                            accept="image/jpeg,image/jpg,image/png,image/webp"
+                                                            onChange={(e) => handleRoomPhotoChange(room.id, e)}
+                                                            className="hidden"
+                                                            id={`room-photo-${room.id}`}
+                                                        />
+                                                        <label htmlFor={`room-photo-${room.id}`} className="cursor-pointer block">
+                                                            <Camera className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                                                            <span className="text-sm text-gray-600 font-medium">Upload Foto Kamar</span>
+                                                            <p className="text-xs text-gray-500 mt-1">PNG, JPG hingga 5MB</p>
+                                                        </label>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             <div>
