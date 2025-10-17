@@ -89,10 +89,11 @@ export default function CategoryListPage() {
     };
 
     const getRatingCategory = (rating: number): string => {
-        if (rating >= 9.0) return 'Exceptional';
-        if (rating >= 8.5) return 'Excellent';
-        if (rating >= 8.0) return 'Very Good';
-        if (rating >= 7.0) return 'Good';
+        if (rating >= 5.0) return '5.0';
+        if (rating >= 4.0) return '4.0';
+        if (rating >= 3.0) return '3.0';
+        if (rating >= 2.0) return '2.0';
+        if (rating >= 1.0) return '1.0';
         return 'Fair';
     };
 
@@ -231,7 +232,7 @@ export default function CategoryListPage() {
                     <div className="space-y-6">
                         {categoryName === 'akomodasi' && (
                             <div>
-                                <h3 className="font-semibold text-gray-800 mb-3">Rating Bintang</h3>
+                                <h3 className="font-semibold text-gray-800 mb-3">Hotel Star Rating</h3>
                                 <div className="space-y-2">
                                     {['5', '4', '3', '2', '1'].map(star => (
                                         <label key={star} className="flex items-center gap-2 cursor-pointer">
@@ -248,7 +249,7 @@ export default function CategoryListPage() {
                         <div>
                             <h3 className="font-semibold text-gray-800 mb-3">Review Score</h3>
                             <div className="space-y-2">
-                                {['Exceptional', 'Excellent', 'Very Good', 'Good'].map(score => (
+                                {['5.0', '4.0', '3.0', '2.0', '1.0'].map(score => (
                                     <label key={score} className="flex items-center gap-2 cursor-pointer">
                                         <input type="checkbox" className="w-4 h-4 text-blue-600"
                                             // BENAR: Gunakan state filter 'reviewScore' dan variabel 'score'
@@ -256,7 +257,10 @@ export default function CategoryListPage() {
                                             // BENAR: Panggil handler untuk 'reviewScore' dengan variabel 'score'
                                             onChange={() => handleFilterChange('reviewScore', score)}
                                         />
-                                        <span>{score}</span>
+                                         <span className="flex items-center gap-1">
+                                            {score}
+                                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                                        </span>
                                     </label>
                                 ))}
                             </div>
@@ -270,17 +274,23 @@ export default function CategoryListPage() {
                         <div className="flex items-center gap-2">
                             <span className="text-sm text-gray-600">Urutkan:</span>
                             <select
-                                className="block appearance-none bg-white border border-gray-300 py-2 pl-3 pr-8 rounded-lg text-sm"
+                                className="..."
                                 value={sortOption}
                                 onChange={(e) => setSortOption(e.target.value)}
                             >
                                 <option value="terbaru">Terbaru</option>
                                 <option value="rating">Rating Tertinggi</option>
-                                <option value="harga-terendah">Harga Terendah</option>
-                                <option value="harga-tertinggi">Harga Tertinggi</option>
-                            </select>
-                        </div>
+                                
+                                {/* --- TAMBAHKAN KONDISI DI SINI --- */}
+                                {categoryName === 'akomodasi' && (
+                                <>
+                                    <option value="harga-terendah">Harga Terendah</option>
+                                    <option value="harga-tertinggi">Harga Tertinggi</option>
+                                </>
+                            )}
+                        </select>
                     </div>
+                </div>
 
                     {filteredAndSortedItems.length === 0 ? (
                         <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
@@ -320,13 +330,17 @@ export default function CategoryListPage() {
                                             </div>
                                             <p className="text-sm text-gray-500 line-clamp-2">{item.description}</p>
                                         </div>
+                                        {categoryName === 'akomodasi' && (
                                         <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
-                                            {renderStars(item.star_rating)} 
+                                            {/* Tampilkan bintang hotel HANYA jika star_rating > 0 */}
+                                            {item.star_rating > 0 && renderStars(item.star_rating)}
+                                            
                                             <div className="text-right">
                                                 <div className="text-xs text-gray-500">Mulai dari</div>
                                                 <div className="font-bold text-lg text-blue-600">{formatPrice(item.price)}</div>
                                             </div>
                                         </div>
+                                    )}
                                     </div>
                                 </div>
                             ))}

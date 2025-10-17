@@ -7,7 +7,8 @@ interface Props {
     params: { categoriesName: string };
 }
 
-export async function generateMetadata({ params: { categoriesName } }: Props): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+    const { categoriesName } = params;
     const capitalizedCategory = categoriesName.charAt(0).toUpperCase() + categoriesName.slice(1);
     
     return {

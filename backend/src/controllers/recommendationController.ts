@@ -58,3 +58,47 @@ export const getRecommendations = async (req: Request, res: Response) => {
         if (connection) connection.release();
     }
 };
+
+export const getPopularRecommendations = async (req: Request, res: Response) => {
+    let connection;
+    try {
+        connection = await getConnection();
+        
+        // Query ini berbeda, fokus pada rating tertinggi dari semua kategori
+        const sqlQuery = `
+            WITH RankedBusinesses AS (
+                SELECT 
+                    b.id, 
+                    b.name, 
+                    b.thumbnail_image, 
+                    b.address,
+                    c.name AS category,
+                    c.slug,
+                    b.star_rating,
+                    ROW_NUMBER() OVER(PARTITION BY b.category_id ORDER BY b.star_rating DESC) as rn
+                FROM 
+                    businesses b
+                JOIN 
+                    categories c ON b.category_id = c.id
+                WHERE 
+                    b.status = 'approved' AND b.star_rating IS NOT NULL
+            )
+            SELECT 
+                id, name, thumbnail_image, address, category, slug, star_rating as rating
+            FROM 
+                RankedBusinesses
+            WHERE 
+                rn = 1;
+        `;
+        
+        const [results] = await connection.query(sqlQuery);
+
+        return res.json({ success: true, data: results });
+
+    } catch (error) {
+        console.error("Error fetching popular recommendations:", error);
+        return res.status(500).json({ success: false, error: "Server error" });
+    } finally {
+        if (connection) connection.release();
+    }
+};

@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import Link from "next/link";
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation'; 
-import Image from 'next/image';
+import Link from "next/link";
+import useEmblaCarousel from 'embla-carousel-react';
+import Autoplay from 'embla-carousel-autoplay';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -15,28 +15,39 @@ import {
   Camera,
   Car,
   Briefcase,
-  Heart,
   Star,
-  Eye,
-  TrendingUp,
-  Clock,
   Users,
   Award,
   Filter,
   ArrowRight,
-  Play,
   Zap,
   Sun,
   Moon
 } from 'lucide-react';
+
+// === INTERFACES & TYPES ===
 interface RecommendationItem {
   id: number;
   name: string;
   thumbnail_image?: string;
   address: string;
   category?: string;
-  type: string; // 'hotel', 'wisata', dll.
+  type: string;
 }
+
+interface PopularData {
+  id: number;
+  name: string;
+  thumbnail_image: string;
+  category: string;
+  slug: string; // <-- TAMBAHKAN INI
+  rating: number;
+}
+
+type ButtonPropType = {
+  enabled: boolean;
+  onClick: () => void;
+};
 
 interface HomepageData {
   akomodasi: RecommendationItem[];
@@ -44,36 +55,115 @@ interface HomepageData {
   kuliner: RecommendationItem[];
 }
 
+// === BUTTON COMPONENTS ===
+const PrevButton: React.FC<ButtonPropType> = ({ enabled, onClick }) => (
+  <button
+    className="absolute top-1/2 left-2 sm:left-4 -translate-y-1/2 z-10 bg-white/70 hover:bg-white rounded-full p-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+    onClick={onClick}
+    disabled={!enabled}
+    aria-label="Previous slide"
+  >
+    <ChevronLeft className="w-6 h-6 text-gray-800" />
+  </button>
+);
+
+const NextButton: React.FC<ButtonPropType> = ({ enabled, onClick }) => (
+  <button
+    className="absolute top-1/2 right-2 sm:right-4 -translate-y-1/2 z-10 bg-white/70 hover:bg-white rounded-full p-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+    onClick={onClick}
+    disabled={!enabled}
+    aria-label="Next slide"
+  >
+    <ChevronRight className="w-6 h-6 text-gray-800" />
+  </button>
+);
+
+
+// === MAIN COMPONENT ===
 const HomePage = () => {
   const router = useRouter();
+
+  // === STATES ===
   const [currentSlide, setCurrentSlide] = useState(0);
   const [activeCategory, setActiveCategory] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchFocused, setSearchFocused] = useState(false);
   const [statsVisible, setStatsVisible] = useState(false);
   const [timeOfDay, setTimeOfDay] = useState<'morning' | 'afternoon' | 'evening'>('morning');
   const [recommendations, setRecommendations] = useState<HomepageData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [popularData, setPopularData] = useState<any[]>([]); // Untuk data slider
+  const [carouselLoading, setCarouselLoading] = useState(true); // Untuk status loading slider
+
+  // === EMBLA CAROUSEL LOGIC ===
+  const autoplay = Autoplay({ delay: 5000, stopOnInteraction: false });
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [autoplay]);
+  const [prevBtnEnabled, setPrevBtnEnabled] = useState(false);
+  const [nextBtnEnabled, setNextBtnEnabled] = useState(false);
+
+  const scrollPrev = useCallback(() => {
+    if (emblaApi) {
+      emblaApi.scrollPrev();
+      autoplay.reset();
+    }
+  }, [emblaApi, autoplay]);
+
+  const scrollNext = useCallback(() => {
+    if (emblaApi) {
+      emblaApi.scrollNext();
+      autoplay.reset();
+    }
+  }, [emblaApi, autoplay]);
+
+  const onSelect = useCallback(() => {
+    if (!emblaApi) return;
+    setPrevBtnEnabled(emblaApi.canScrollPrev());
+    setNextBtnEnabled(emblaApi.canScrollNext());
+  }, [emblaApi]);
 
   useEffect(() => {
-const fetchHomepageData = async () => {
-    try {
-      // Panggil endpoint baru untuk data homepage yang dikelompokkan
-      const res = await fetch("http://localhost:5000/api/homepage-recommendations");
-      const json = await res.json();
-      if (json.success) {
-        setRecommendations(json.data);
-      }
-    } catch (err) {
-      console.error("Error fetching homepage data:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-  fetchHomepageData();
-}, []);
+    if (!emblaApi) return;
+    onSelect();
+    emblaApi.on('select', onSelect);
+    emblaApi.on('reInit', onSelect);
+  }, [emblaApi, onSelect]);
 
-  // Set time-based greeting
+
+  // === DATA FETCHING & SIDE EFFECTS ===
+  useEffect(() => {
+    const fetchHomepageData = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/api/homepage-recommendations");
+        const json = await res.json();
+        if (json.success) {
+          setRecommendations(json.data);
+        }
+      } catch (err) {
+        console.error("Error fetching homepage data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHomepageData();
+  }, []);
+
+    useEffect(() => {
+    const fetchPopularData = async () => {
+      setCarouselLoading(true); // Mulai loading
+      try {
+        const res = await fetch("http://localhost:5000/api/recommendations/popular");
+        const json = await res.json();
+        if (json.success) {
+          setPopularData(json.data); // Simpan data ke state baru
+        }
+      } catch (err) {
+        console.error("Error fetching popular recommendations:", err);
+      } finally {
+        setCarouselLoading(false); // Selesai loading
+      }
+    };
+    fetchPopularData();
+  }, []);
+
   useEffect(() => {
     const hour = new Date().getHours();
     if (hour < 12) setTimeOfDay('morning');
@@ -81,89 +171,33 @@ const fetchHomepageData = async () => {
     else setTimeOfDay('evening');
     
     const timer = setTimeout(() => setStatsVisible(true), 1000);
-    return () => clearTimeout(timer);
+    const heroSliderTimer = setInterval(() => {
+        setCurrentSlide(prev => (prev + 1) % slides.length);
+    }, 5000);
+
+    return () => {
+        clearTimeout(timer);
+        clearInterval(heroSliderTimer);
+    };
   }, []);
 
-  // Enhanced categories dengan routing yang konsisten
+
+  // === STATIC DATA & CONFIGS ===
   const categories = [
-    { 
-      icon: Building, 
-      label: "Akomodasi", 
-      color: "from-blue-500 to-blue-600", 
-      count: "120+",
-      link: "/category/akomodasi",
-      slug: "akomodasi"
-    },
-    { 
-      icon: Utensils, 
-      label: "Kuliner", 
-      color: "from-orange-500 to-red-500", 
-      count: "85+",
-      link: "/category/kuliner",
-      slug: "kuliner"
-    },
-    { 
-      icon: MapPin, 
-      label: "Wisata", 
-      color: "from-green-500 to-emerald-600", 
-      count: "67+",
-      link: "/category/wisata",
-      slug: "wisata"
-    },
-    { 
-      icon: Camera, 
-      label: "Hiburan", 
-      color: "from-purple-500 to-pink-500", 
-      count: "45+",
-      link: "/category/hiburan",
-      slug: "hiburan"
-    },
-    { 
-      icon: Car, 
-      label: "Transportasi", 
-      color: "from-indigo-500 to-blue-500", 
-      count: "30+",
-      link: "/category/transportasi",
-      slug: "transportasi"
-    },
-    { 
-      icon: Briefcase, 
-      label: "Bisnis", 
-      color: "from-gray-600 to-gray-700", 
-      count: "28+",
-      link: "/category/bisnis",
-      slug: "bisnis"
-    },
+    { icon: Building, label: "Akomodasi", color: "from-blue-500 to-blue-600", count: "120+", link: "/category/akomodasi" },
+    { icon: Utensils, label: "Kuliner", color: "from-orange-500 to-red-500", count: "85+", link: "/category/kuliner" },
+    { icon: MapPin, label: "Wisata", color: "from-green-500 to-emerald-600", count: "67+", link: "/category/wisata" },
+    { icon: Camera, label: "Hiburan", color: "from-purple-500 to-pink-500", count: "45+", link: "/category/hiburan" },
+    { icon: Car, label: "Transportasi", color: "from-indigo-500 to-blue-500", count: "30+", link: "/category/transportasi" },
+    { icon: Briefcase, label: "Bisnis", color: "from-gray-600 to-gray-700", count: "28+", link: "/category/bisnis" },
   ];
 
-  // Dynamic slides with time-based content
   const slides = [
-    {
-      id: 1,
-      title: timeOfDay === 'morning' ? "SELAMAT PAGI BATAM!" : timeOfDay === 'afternoon' ? "SELAMAT SIANG BATAM!" : "SELAMAT MALAM BATAM!",
-      subtitle: "Temukan Pengalaman Tak Terlupakan",
-      image: "/api/placeholder/1200/400",
-      cta: "Jelajahi Sekarang"
-    },
-    {
-      id: 2,
-      title: "KULINER TERBAIK",
-      subtitle: "Nikmati Cita Rasa Khas Batam",
-      image: "/api/placeholder/1200/400",
-      cta: "Coba Sekarang",
-      link: "/kategori/kuliner"
-    },
-    {
-      id: 3,
-      title: "DESTINASI WISATA",
-      subtitle: "Keindahan Alam Yang Memukau",
-      image: "/api/placeholder/1200/400", 
-      cta: "Kunjungi",
-      link: "/kategori/wisata"
-    }
+    { id: 1, title: timeOfDay === 'morning' ? "SELAMAT PAGI BATAM!" : timeOfDay === 'afternoon' ? "SELAMAT SIANG BATAM!" : "SELAMAT MALAM BATAM!", subtitle: "Temukan Pengalaman Tak Terlupakan", cta: "Jelajahi Sekarang" },
+    { id: 2, title: "KULINER TERBAIK", subtitle: "Nikmati Cita Rasa Khas Batam", cta: "Coba Sekarang", link: "/category/kuliner" },
+    { id: 3, title: "DESTINASI WISATA", subtitle: "Keindahan Alam Yang Memukau", cta: "Kunjungi", link: "/category/wisata" }
   ];
 
-  // Statistics counter
   const stats = [
     { icon: Building, label: "Total Bisnis", value: 375, suffix: "+" },
     { icon: Users, label: "Pengguna Aktif", value: 12500, suffix: "+" },
@@ -171,44 +205,30 @@ const fetchHomepageData = async () => {
     { icon: Award, label: "Partner Terpercaya", value: 50, suffix: "+" }
   ];
 
-  const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % slides.length);
-  };
 
-  const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-  };
-
-  // Auto slide
-  useEffect(() => {
-    const timer = setInterval(nextSlide, 5000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const getTimeIcon = () => {
-    switch (timeOfDay) {
-      case 'morning': return <Sun className="w-5 h-5 text-yellow-500" />;
-      case 'afternoon': return <Sun className="w-5 h-5 text-orange-500" />;
-      case 'evening': return <Moon className="w-5 h-5 text-indigo-400" />;
+  // === HANDLER FUNCTIONS ===
+  const handleSearch = () => {
+    if (searchQuery.trim() !== '') {
+      router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
     }
   };
 
-   const handleSearch = () => {
-  // Hanya jalankan jika ada isi pencarian
-  if (searchQuery.trim() !== '') {
-    // Arahkan ke halaman hasil pencarian dengan query
-    router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
-  }
-};
-
-const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
       handleSearch();
     }
-};
+  };
 
   const handleCategoryClick = (index: number) => {
     setActiveCategory(index);
+  };
+  
+  const heroPrevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+  };
+
+  const heroNextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % slides.length);
   };
 
   return (
@@ -224,7 +244,7 @@ const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
         <div className="relative max-w-6xl mx-auto px-4 py-8">
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-2 mb-4">
-              {getTimeIcon()}
+              {/* {getTimeIcon()} */}
               <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 BatamPortal
               </h1>
@@ -236,31 +256,23 @@ const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
 
           {/* Enhanced Search Bar */}
           <div className="relative max-w-2xl mx-auto">
-    <div className={`relative transition-all duration-300 ${searchFocused ? 'transform scale-105' : ''}`}>
-      <input
-        type="text"
-        placeholder="Cari hotel, restoran, wisata, atau layanan lainnya..."
-        onFocus={() => setSearchFocused(true)}
-        onBlur={() => setSearchFocused(false)}
-        // === TAMBAHAN BARU: Hubungkan input dengan state ===
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        onKeyDown={handleKeyDown} // Menangani saat tombol Enter ditekan
-        className="w-full px-6 py-4 pr-20 text-lg border-2 border-gray-200 rounded-full focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 shadow-lg"
-      />
-      <div className="absolute right-2 top-2 flex gap-2">
-        <button className="p-2 text-gray-400 hover:text-blue-500 transition-colors">
-          <Filter className="w-5 h-5" />
-        </button>
-        <button 
-          // === TAMBAHAN BARU: Tambahkan event onClick ===
-          onClick={handleSearch}
-          className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors"
-        >
-          <Search className="w-5 h-5" />
-        </button>
-      </div>
-    </div>
+            <div className={`relative transition-all duration-300`}> {/* Hapus referensi ke searchFocused jika state-nya belum dibuat */}
+              <input
+                type="text"
+                placeholder="Cari hotel, restoran, wisata, atau layanan lainnya..."
+                className="w-full px-6 py-4 pr-20 text-lg border-2 border-gray-200 rounded-full focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 shadow-lg"
+              />
+              <div className="absolute right-2 top-2 flex gap-2">
+                <button className="p-2 text-gray-400 hover:text-blue-500 transition-colors">
+                  <Filter className="w-5 h-5" />
+                </button>
+                <button 
+                  className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors"
+                >
+                  <Search className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
             
             {/* Quick Search Suggestions */}
             <div className="flex flex-wrap gap-2 mt-4 justify-center">
@@ -285,6 +297,68 @@ const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
 
       <div className="max-w-6xl mx-auto p-4 space-y-12">
         
+        {/* Embla Carousel Section */}
+        <section>
+  <div className="flex items-center justify-between mb-6">
+    <div>
+      <h2 className="text-3xl font-bold text-gray-800">Rekomendasi Terpopuler 🔥</h2>
+      <p className="text-gray-600">Pilihan terbaik yang sering dikunjungi di Batam</p>
+    </div>
+  </div>
+
+  <div className="relative">
+    {/* Tampilkan Skeleton Loader saat loading */}
+    {carouselLoading ? (
+      <div className="block aspect-video sm:aspect-[2.3/1] rounded-xl bg-gray-200 animate-pulse"></div>
+    ) : (
+      <>
+        <div className="overflow-hidden" ref={emblaRef}>
+          <div className="flex">
+            {/* GUNAKAN `popularData` (DARI STATE), BUKAN `popularRecommendations` */}
+            {popularData.map((item: any) => (
+              <div key={item.id} className="relative flex-grow-0 flex-shrink-0 w-full basis-full min-w-0">
+                <Link href={`/category/${item.slug}/detail/${item.id}`} className="block group aspect-video sm:aspect-[2.3/1] rounded-xl overflow-hidden">
+                  <img 
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                    src={`http://localhost:5000/uploads/${item.thumbnail_image || item.image}`} // Menggunakan thumbnail_image atau image
+                    alt={item.name} 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
+                  <div className="absolute bottom-0 left-0 p-4 sm:p-6 text-white">
+                    <span className="text-sm font-semibold bg-blue-600 px-2 py-1 rounded">{item.category}</span>
+                    <h3 className="text-xl sm:text-2xl font-bold mt-2 drop-shadow-lg">{item.name}</h3>
+                    {/* Tambahkan kembali rating jika ada di data Anda */}
+                    {item.rating && (
+                      <div className="flex items-center mt-2">
+                        <div className="flex items-center">
+                          {[...Array(5)].map((_, i) => (
+                            <Star key={i} className={`w-4 h-4 ${i < Math.floor(item.rating) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} />
+                          ))}
+                        </div>
+                        <span className="ml-2 text-sm font-medium">{item.rating}</span>
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Tombol hanya muncul jika ada data */}
+        {popularData.length > 0 && (
+          <>
+            <PrevButton onClick={scrollPrev} enabled={prevBtnEnabled} />
+            <NextButton onClick={scrollNext} enabled={nextBtnEnabled} />
+          </>
+        )}
+      </>
+    )}
+  </div>
+</section>
+
+
+
         {/* Enhanced Categories Section */}
         <section>
           <div className="flex items-center justify-between mb-8">
@@ -300,6 +374,7 @@ const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
+
           
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {categories.map((category, index) => {
@@ -530,67 +605,6 @@ const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     </div>
         )}
       </section>
-
-
-
-        {/* Enhanced Carousel Section */}
-        <section className="relative">
-          <div className="relative overflow-hidden rounded-2xl shadow-2xl">
-            <div 
-              className="flex transition-transform duration-700 ease-in-out"
-              style={{ transform: `translateX(-${currentSlide * 100}%)` }}
-            >
-              {slides.map((slide, index) => (
-                <div key={slide.id} className="w-full flex-shrink-0 relative">
-                  <div className="h-80 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 flex items-center justify-center relative overflow-hidden">
-                    <div className="absolute inset-0 opacity-20">
-                      <div className="absolute top-10 left-10 w-32 h-32 bg-white rounded-full animate-ping"></div>
-                      <div className="absolute bottom-20 right-20 w-24 h-24 bg-white rounded-full animate-pulse delay-1000"></div>
-                      <div className="absolute top-1/2 left-1/3 w-16 h-16 bg-white rounded-full animate-bounce delay-500"></div>
-                    </div>
-                    <div className="relative z-10 text-center text-white max-w-4xl px-8">
-                      <h2 className="text-4xl md:text-6xl font-bold mb-4 animate-fade-in">
-                        {slide.title}
-                      </h2>
-                      <p className="text-xl md:text-2xl mb-8 opacity-90">
-                        {slide.subtitle}
-                      </p>
-                      <Link 
-                        href={slide.link || '/kategori'}
-                        className="inline-block bg-white text-blue-600 px-8 py-3 rounded-full font-semibold hover:bg-gray-100 transition-colors transform hover:scale-105"
-                      >
-                        {slide.cta}
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={prevSlide}
-              className="absolute left-6 top-1/2 transform -translate-y-1/2 bg-white/30 hover:bg-white/50 rounded-full p-3 text-white transition-all backdrop-blur-sm"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-            <button
-              onClick={nextSlide}
-              className="absolute right-6 top-1/2 transform -translate-y-1/2 bg-white/30 hover:bg-white/50 rounded-full p-3 text-white transition-all backdrop-blur-sm"
-            >
-              <ChevronRight className="w-6 h-6" />
-            </button>
-            <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex gap-2">
-              {slides.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentSlide(index)}
-                  className={`w-3 h-3 rounded-full transition-all ${
-                    currentSlide === index ? 'bg-white scale-125' : 'bg-white/50'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
 
         {/* Call to Action Section */}
         <section className="bg-gradient-to-r from-green-500 to-teal-600 rounded-2xl p-8 text-center text-white">
