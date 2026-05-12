@@ -2,8 +2,9 @@
 
 import { Router, Request, Response } from 'express';
 import { query } from '../lib/db'; 
-import { RowDataPacket } from 'mysql2/promise'; // Pastikan ini diimpor
+import { RowDataPacket } from 'mysql2/promise'; 
 
+// Interface untuk Kategori Utama (Sudah ada)
 interface CategoryQueryResult extends RowDataPacket {
   id: number;
   name: string;
@@ -13,9 +14,18 @@ interface CategoryQueryResult extends RowDataPacket {
   item_count: number;
 }
 
+// --- TAMBAHAN 1: Interface untuk Subkategori ---
+interface SubcategoryQueryResult extends RowDataPacket {
+  id: number;
+  name: string;
+  slug: string;
+}
+
 const router = Router();
 
-router.get('/', async (req: Request, res: Response) => {  try {
+// 1. Route Ambil Semua Kategori (Sudah ada punya Anda)
+router.get('/', async (req: Request, res: Response) => {
+  try {
     const sqlQuery = `
       SELECT 
         c.id, c.name, c.slug, c.description, c.is_featured,
@@ -37,6 +47,36 @@ router.get('/', async (req: Request, res: Response) => {  try {
     console.error('Error fetching categories:', error);
     res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
+});
+
+// --- TAMBAHAN 2: Route Baru untuk Ambil Subkategori ---
+// URL nanti: /api/categories/2/subcategories
+router.get('/:categoryId/subcategories', async (req: Request, res: Response) => {
+    try {
+      const { categoryId } = req.params;
+      
+      const sqlQuery = `
+        SELECT id, name, slug 
+        FROM subcategories 
+        WHERE category_id = ? AND is_active = 1 
+        ORDER BY name ASC
+      `;
+      
+      // Mengirim query dengan parameter (values) agar aman
+      const subcategories = await query<SubcategoryQueryResult[]>({ 
+          query: sqlQuery,
+          values: [categoryId] 
+      });
+      
+      res.json({
+        success: true,
+        data: subcategories
+      });
+  
+    } catch (error) {
+      console.error('Error fetching subcategories:', error);
+      res.status(500).json({ success: false, message: 'Internal Server Error' });
+    }
 });
 
 export default router;

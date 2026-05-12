@@ -9,7 +9,7 @@ import {
     ChevronDown, X, FileText, Users, Mail, Loader2, RefreshCw, Plus, AlertTriangle, Check
 } from "lucide-react";
 
-// --- TIPE DATA BISNIS (Disesuaikan dengan View business_with_category) ---
+// --- TIPE DATA DESTINASI (Disesuaikan dengan View business_with_category) ---
 type Business = {
     id: number;
     name: string; 
@@ -194,7 +194,7 @@ export default function BusinessesPage() {
             }
         } catch (error) {
             console.error('Error fetching businesses:', error);
-            setError(error instanceof Error ? error.message : 'Gagal memuat data bisnis');
+            setError(error instanceof Error ? error.message : 'Gagal memuat data destinasi');
         } finally {
             setIsLoading(false);
         }
@@ -367,8 +367,8 @@ export default function BusinessesPage() {
 
         const colors: { [key: string]: string } = {
             'Akomodasi': 'bg-blue-100 text-blue-800',
-            'Wisata': 'bg-green-100 text-green-800',
             'Kuliner': 'bg-orange-100 text-orange-800',
+            'Wisata': 'bg-green-100 text-green-800',
             'Hiburan': 'bg-purple-100 text-purple-800',
             'Transportasi': 'bg-red-100 text-red-800',
             'Kesehatan': 'bg-cyan-100 text-cyan-800',
@@ -388,7 +388,7 @@ export default function BusinessesPage() {
                     <div className="flex items-center justify-center py-12">
                         <div className="text-center">
                             <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-                            <p className="text-gray-600">Memuat data bisnis...</p>
+                            <p className="text-gray-600">Memuat data destinasi...</p>
                         </div>
                     </div>
                 </div>
@@ -444,7 +444,7 @@ export default function BusinessesPage() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-900">Data Bisnis</h1>
+                        <h1 className="text-3xl font-bold text-gray-900">Data Destinasi</h1>
                         <p className="text-gray-600 mt-2">
                             Kelola semua entri bisnis yang masuk dari pengguna
                         </p>
@@ -580,7 +580,7 @@ export default function BusinessesPage() {
                         <thead className="bg-gray-50">
                             <tr>
                                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Business
+                                    Destinasi
                                 </th>
                                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Kategori

@@ -1,53 +1,64 @@
 // backend/src/routes/businesses/routes.ts
-import express from "express";
+import { authenticate } from "@/middleware/authMiddleware"; // Sesuaikan path jika berbeda
+import { Router } from "express";
 import {
-    getAllBusinesses,
-    getRelatedBusinesses,
-    getBusinessById, 
-    createBusiness,  
-    uploadMedia,
-    updateBusiness,  
-    deleteBusiness,  
+    getAllBusinesses,        // Admin List
+    getBusinessById,         // Admin Preview/Edit (Bisa lihat pending)
+    getBusinessesByCategory, // PUBLIC (Hanya approved)
+    createBusiness,          // Admin/User Create
+    updateBusiness,          // Admin Update
+    deleteBusiness,          // Admin Delete
+    uploadMedia,             // Admin Upload
+    getBusinessReviews,     
+    createBusinessReview,
+    deleteBusinessReview
 } from "@/controllers/businessesDataController";
 import { upload } from "@/middleware/upload";
 
-const router = express.Router();
+const router = Router();
 
-// --- ROUTE GET ---
-router.get("/related", getRelatedBusinesses);
+// --- PUBLIC ROUTES ---
+// Mengambil bisnis berdasarkan kategori (misal: /api/businesses/category/kuliner)
+router.get("/category/:categorySlug", getBusinessesByCategory);
+
+
+// --- ADMIN / GENERAL ROUTES ---
+
+// 1. GET All (Untuk Tabel Admin)
 router.get("/", getAllBusinesses);
+
+// 2. GET Single by ID (Untuk Preview & Edit di Admin Panel)
+// PENTING: Ditaruh SETELAH route /category/... agar tidak bentrok
 router.get("/:id", getBusinessById);
 
-// --- ROUTE POST (Create Business) ---
-router.post(
-    "/", 
-    // Menggunakan upload.fields untuk thumbnail dan media galeri
-    upload.fields([
-        { name: 'thumbnail_picture', maxCount: 1 }, // Logo Hotel
-        { name: 'media_files', maxCount: 20 }     // Galeri Foto/Video
-    ]),
-    createBusiness // Memanggil fungsi createBusiness yang sudah dimodifikasi
+// 3. POST Create (Daftar Bisnis Baru)
+router.post("/", 
+    upload.fields([
+        { name: 'thumbnail_picture', maxCount: 1 }, 
+        { name: 'media_files', maxCount: 10 }
+    ]),
+    createBusiness
 );
 
-// --- ROUTE PUT (Update Business) ---
-router.put(
-    "/:id", 
-    // Hanya perlu thumbnail_picture untuk update, yang lainnya di-handle terpisah
-    upload.fields([
-        { name: 'thumbnail_picture', maxCount: 1 }, 
-    ]),
-    updateBusiness // Memanggil fungsi updateBusiness
-);
+// 4. PUT Update (Simpan Edit)
+router.put('/:id', upload.fields([
+    { name: 'thumbnail_picture', maxCount: 1 }, 
+    { name: 'media_files', maxCount: 10 }
+]), updateBusiness);
 
-// --- ROUTE POST (Upload Media Tambahan) ---
-router.post(
-    "/:id/media", 
-    upload.array("media_files", 50), // Bisa upload batch file ke galeri yang sudah ada
-    uploadMedia
-);
-
-// --- ROUTE DELETE ---
+// 5. DELETE (Hapus Bisnis)
 router.delete("/:id", deleteBusiness);
 
+// 6. Upload Media Tambahan
+router.post("/:id/media", upload.array("media_files", 10), uploadMedia);
+
+
+// 7. GET Reviews (Ambil daftar ulasan)
+router.get("/:id/reviews", getBusinessReviews);
+
+// 8. POST Review (Kirim ulasan baru - Wajib Login)
+router.post("/:id/reviews", authenticate, upload.single('image'), createBusinessReview);
+
+router.delete("/:businessId/reviews/:reviewId", authenticate, deleteBusinessReview);
 
 export default router;

@@ -21,7 +21,9 @@ interface BusinessItem {
     thumbnail_image: string;
     description: string;
     subcategory_slug?: string;
-    price: number; // Pastikan API mengirimkan ini
+    price: number; 
+    latitude?: number;  
+    longitude?: number; 
 }
 
 interface Subcategory {
@@ -41,6 +43,7 @@ export default function CategoryListPage() {
     const [categoryTitle, setCategoryTitle] = useState(categoryName);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [userLocation, setUserLocation] = useState<{lat: number, lon: number} | null>(null);
 
     // State untuk filter & sort
     const [searchTerm, setSearchTerm] = useState('');
@@ -64,9 +67,10 @@ export default function CategoryListPage() {
                 
                 const response = await res.json();
                 if (response.success) {
-                    setItems(response.data.items || []);
-                    setSubcategories(response.data.subcategories || []);
-                    setCategoryTitle(response.data.category_title || categoryName);
+                setItems(Array.isArray(response.data.items) ? response.data.items : []);
+                // Pastikan subcategories selalu menjadi array
+                setSubcategories(Array.isArray(response.data.subcategories) ? response.data.subcategories : []);
+                setCategoryTitle(response.data.category_title || categoryName);
                 } else {
                     throw new Error(response.message || 'Gagal memuat data kategori');
                 }
@@ -79,6 +83,61 @@ export default function CategoryListPage() {
 
         fetchData();
     }, [categoryName]);
+
+    // Ambil lokasi pengguna saat halaman dimuat
+useEffect(() => {
+    if (typeof window !== "undefined" && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                setUserLocation({
+                    lat: position.coords.latitude,
+                    lon: position.coords.longitude
+                });
+            },
+            (error) => console.error("GPS Error:", error.message),
+            { enableHighAccuracy: true }
+        );
+    }
+}, []);
+
+// Fungsi Haversine Formula
+const calculateDistance = (lat1: number, lon1: number, lat2: any, lon2: any) => {
+    const p2Lat = Number(lat2);
+    const p2Lon = Number(lon2);
+    if (isNaN(p2Lat) || isNaN(p2Lon)) return null;
+
+    const toRad = (value: number) => (value * Math.PI) / 180;
+    const R = 6371; // Jari-jari bumi dalam km
+
+    const dLat = toRad(p2Lat - lat1);
+    const dLon = toRad(p2Lon - lon1);
+    
+    const a = 
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(p2Lat)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+
+    return distance < 1 
+        ? `${(distance * 1000).toFixed(0)} m` 
+        : `${distance.toFixed(1)} km`;
+};
+
+const getRawDistance = (lat1: number, lon1: number, lat2: any, lon2: any) => {
+    const p2Lat = Number(lat2);
+    const p2Lon = Number(lon2);
+    if (isNaN(p2Lat) || isNaN(p2Lon)) return 9999; // Taruh di paling bawah jika tidak ada data
+
+    const toRad = (v: number) => (v * Math.PI) / 180;
+    const R = 6371;
+    const dLat = toRad(p2Lat - lat1);
+    const dLon = toRad(p2Lon - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(p2Lat)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+};
 
     // --- Helper Functions (Lengkap dari kode lama Anda) ---
     const formatPrice = (price: number) => {
@@ -154,6 +213,16 @@ export default function CategoryListPage() {
 
         filtered.sort((a, b) => {
             switch (sortOption) {
+                case 'jarak-terdekat':
+                    if (!userLocation) return 0;
+                    return getRawDistance(userLocation.lat, userLocation.lon, a.latitude, a.longitude) - 
+                        getRawDistance(userLocation.lat, userLocation.lon, b.latitude, b.longitude);
+                
+                case 'jarak-terjauh':
+                    if (!userLocation) return 0;
+                    return getRawDistance(userLocation.lat, userLocation.lon, b.latitude, b.longitude) - 
+                        getRawDistance(userLocation.lat, userLocation.lon, a.latitude, a.longitude);
+
                 case 'harga-terendah': return (a.price || 0) - (b.price || 0);
                 case 'harga-tertinggi': return (b.price || 0) - (a.price || 0);
                 case 'rating': return b.average_rating - a.average_rating;
@@ -210,9 +279,10 @@ export default function CategoryListPage() {
                                 onChange={(e) => setSelectedSubcategory(e.target.value)}
                             >
                                 <option value="all">Semua Subkategori</option>
-                                {subcategories.map(sub => (
-                                    <option key={sub.slug} value={sub.slug}>{sub.name}</option>
-                                ))}
+                            {/* Gunakan Array.isArray untuk memastikan data valid */}
+                            {Array.isArray(subcategories) && subcategories.map(sub => (
+                                <option key={sub.slug} value={sub.slug}>{sub.name}</option>
+                            ))}
                             </select>
                             <button onClick={handleClearFilters} title="Clear all filters" className="p-3 border rounded-lg bg-gray-100 hover:bg-gray-200">
                                 <X className="w-5 h-5 text-gray-500" />
@@ -280,6 +350,8 @@ export default function CategoryListPage() {
                             >
                                 <option value="terbaru">Terbaru</option>
                                 <option value="rating">Rating Tertinggi</option>
+                                <option value="jarak-terdekat">Jarak Terdekat</option>
+                                <option value="jarak-terjauh">Jarak Terjauh</option>
                                 
                                 {/* --- TAMBAHKAN KONDISI DI SINI --- */}
                                 {categoryName === 'akomodasi' && (
@@ -313,21 +385,36 @@ export default function CategoryListPage() {
                                             sizes="(max-width: 1024px) 100vw, 12rem"
                                         />
                                     </div>
-                                    <div className="flex-1 p-6 flex flex-col justify-between">
+                                    <div className="flex-1 p-6 flex flex-col justify-between min-w-0">
                                         <div>
-                                            <div className="flex items-start justify-between mb-2">
-                                                <h3 className="font-bold text-lg text-gray-800">{item.name}</h3>
+                                            <div className="flex items-start justify-between mb-2 gap-2">
+                                            <div className="min-w-0 flex-1">
+                                                <h3 className="font-bold text-lg text-gray-800 truncate">{item.name}</h3>
+                                            </div>
                                                 <div className="flex items-center gap-2 ml-4">
                                                     <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded-lg">
                                                         <Star className="w-4 h-4 text-green-600 fill-current" />
-                                                        <span className="font-bold text-green-600">{item.average_rating.toFixed(1)}</span>
+                                                        <span className="font-bold text-green-600">
+                                                            {/* Konversi ke Number dan beri nilai default 0 jika data kosong */}
+                                                            {Number(item.average_rating || 0).toFixed(1)}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-1 text-sm text-gray-600 mb-3">
+                                            <div className="flex items-center justify-between mb-3 gap-2 min-w-0">
+                                            <div className="flex items-center gap-1 text-sm text-gray-600 min-w-0 flex-1">
                                                 <MapPin className="w-4 h-4 flex-shrink-0" />
-                                                <span>{item.address}</span>
+                                                <span className="truncate">{item.address}</span>
                                             </div>
+                                            
+                                            {/* Info Jarak Tetap di Kanan */}
+                                            {userLocation && item.latitude != null && (
+                                                <div className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md text-xs font-bold border border-blue-100 flex-shrink-0">
+                                                    <TrendingUp className="w-3 h-3" />
+                                                    {calculateDistance(userLocation.lat, userLocation.lon, item.latitude, item.longitude)}
+                                                </div>
+                                            )}
+                                        </div>
                                             <p className="text-sm text-gray-500 line-clamp-2">{item.description}</p>
                                         </div>
                                         {categoryName === 'akomodasi' && (

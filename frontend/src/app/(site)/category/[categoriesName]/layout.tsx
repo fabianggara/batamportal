@@ -8,8 +8,10 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-    const { categoriesName } = params;
-    const capitalizedCategory = categoriesName.charAt(0).toUpperCase() + categoriesName.slice(1);
+  // AWAT params sebelum mengambil propertinya
+  const { categoriesName } = await params; 
+  
+  const capitalizedCategory = categoriesName.charAt(0).toUpperCase() + categoriesName.slice(1);
     
     return {
         title: `${capitalizedCategory} - BatamPortal`,

@@ -13,13 +13,14 @@ export const getHomepageRecommendations = async (req: Request, res: Response) =>
             WITH RankedSubmissions AS (
                 SELECT
                     id, name, address, thumbnail_image, category_id,
+                    latitude, longitude, -- TAMBAHKAN KOLOM INI
                     ROW_NUMBER() OVER(PARTITION BY category_id ORDER BY published_at DESC) as row_num
                 FROM
                     businesses
                 WHERE
-                    status = 'approved' AND category_id IN (1, 2, 3) -- Asumsi: 1:Akomodasi, 2:Wisata, 3:Kuliner
+                    status = 'approved' AND category_id IN (1, 2, 3)
             )
-            SELECT id, name, address, thumbnail_image, category_id
+            SELECT id, name, address, thumbnail_image, category_id, latitude, longitude -- TAMBAHKAN KOLOM INI
             FROM RankedSubmissions
             WHERE row_num <= 4;
         `;
@@ -33,11 +34,11 @@ export const getHomepageRecommendations = async (req: Request, res: Response) =>
             kuliner: []
         };
         
-        // Buat pemetaan dari category_id ke nama kunci dan tipe URL
+            // Buat pemetaan dari category_id ke nama kunci dan tipe URL
         const categoryMap: { [key: number]: { key: string, type: string } } = {
             1: { key: 'akomodasi', type: 'akomodasi' },
-            2: { key: 'wisata', type: 'wisata' },
-            3: { key: 'kuliner', type: 'kuliner' }
+            2: { key: 'kuliner', type: 'kuliner' },
+            3: { key: 'wisata', type: 'wisata' }
         };
 
         // Proses hasil query untuk dikelompokkan berdasarkan kategori

@@ -1,15 +1,14 @@
 'use client'
 
 import Link from "next/link";
-import Image from "next/image"; // Tambahkan import Image
+import Image from "next/image"; 
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { 
     Home, 
     Users, 
     Star,
-    Building2,
-    // MapPin,
+    MapPin, 
     ChevronLeft, 
     ChevronRight,
     BarChart3,
@@ -17,12 +16,9 @@ import {
     User,
     Menu,
     X,
-    Settings,
-    HandCoins,
-    TreePine
+    Settings
 } from "lucide-react";
 
-// Import useAuth
 import { useAuth } from "@/context/AuthContext";
 
 export default function Sidebar() {
@@ -30,19 +26,22 @@ export default function Sidebar() {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-    // Ambil data user dan fungsi logout dari context
     const { user, logout } = useAuth(); 
 
-    // Pastikan kita punya data user sebelum merender bagian profil
     const adminName = user?.name || (user?.email ? user.email.split('@')[0] : 'Admin');
     const adminEmail = user?.email || 'admin@portal.com';
     const adminProfilePicture = user?.profile_picture;
     
-    // Fungsi untuk Logout
     const handleLogout = async () => {
         if (window.confirm('Apakah Anda yakin ingin keluar dari Panel Admin?')) {
             await logout();
         }
+    };
+
+    // Helper untuk mendapatkan URL gambar profil yang benar
+    const getProfileImageUrl = (pic: string | null | undefined) => {
+        if (!pic) return '';
+        return pic.startsWith('http') ? pic : `http://localhost:5000/uploads/${pic}`;
     };
 
     const menuItems = [
@@ -68,25 +67,11 @@ export default function Sidebar() {
             description: "User Reviews"
         },
         {
-            title: "Government",
-            href: "/admin/government",
-            icon: Building2, // Icon untuk instansi pemerintahan
+            title: "Destinations", 
+            href: "/admin/businesses", 
+            icon: MapPin, 
             badge: null,
-            description: "Government Institutions"
-        },
-        {
-            title: "Businesses",
-            href: "/admin/businesses",
-            icon: HandCoins, // Icon untuk bisnis/perusahaan
-            badge: null,
-            description: "Business Directory"
-        },
-        {
-            title: "Public Space",
-            href: "/admin/publicSpace",
-            icon: TreePine, // Icon untuk ruang publik/taman
-            badge: null,
-            description: "Public Places"
+            description: "Tourist Destinations"
         },
         {
             title: "Analytics",
@@ -168,18 +153,18 @@ export default function Sidebar() {
                     </div>
                 </div>
 
-                {/* Admin Profile - MENGGUNAKAN DATA USER NYATA */}
+                {/* Admin Profile */}
                 <div className="px-4 py-2 border-b border-gray-700">
                     <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
                         {/* Avatar */}
-                        <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center overflow-hidden">
+                        <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center overflow-hidden relative">
                             {adminProfilePicture ? (
                                 <Image
-                                    src={adminProfilePicture}
+                                    src={getProfileImageUrl(adminProfilePicture)} // Memanggil helper URL di sini
                                     alt="Admin Profile"
-                                    width={40}
-                                    height={40}
-                                    className="rounded-full object-cover"
+                                    fill
+                                    sizes="40px"
+                                    className="object-cover"
                                 />
                             ) : (
                                 <User className="w-5 h-5 text-white" />
@@ -237,7 +222,6 @@ export default function Sidebar() {
                                     <Icon className="w-5 h-5" />
                                     {item.badge && !isCollapsed && (
                                         <span className="absolute -top-1 -right-1 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                                            {/* Badge content can be added here */}
                                         </span>
                                     )}
                                 </div>
@@ -283,7 +267,7 @@ export default function Sidebar() {
                 {/* Footer */}
                 <div className="p-4 border-t border-gray-700">
                     <button
-                        onClick={handleLogout} // Hubungkan ke fungsi logout
+                        onClick={handleLogout}
                         className={`
                             w-full flex items-center gap-3 p-3 text-gray-400 hover:text-red-400 hover:bg-gray-700/50 rounded-xl transition-all duration-200
                             ${isCollapsed ? 'justify-center' : ''}

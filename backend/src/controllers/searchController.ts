@@ -14,26 +14,35 @@ export const handleSearch = async (req: Request, res: Response) => {
   try {
     connection = await getConnection();
 
-    // Query tunggal yang mencari di beberapa kolom pada tabel businesses
-    // dan mengambil 'slug' kategori sebagai 'type' untuk routing di frontend.
+    // Query diperbarui untuk JOIN ke subcategories
     const sqlQuery = `
       SELECT
         b.id,
         b.name,
         b.address,
         b.thumbnail_image,
-        c.slug AS type 
+        c.slug AS type,
+        s.name AS subcategory_name
       FROM
         businesses AS b
       LEFT JOIN
         categories AS c ON b.category_id = c.id
+      LEFT JOIN
+        subcategories AS s ON b.subcategory_id = s.id
       WHERE
-        (b.name LIKE ? OR b.address LIKE ? OR b.description LIKE ? OR c.name LIKE ?)
+        (
+          b.name LIKE ? OR 
+          b.address LIKE ? OR 
+          b.description LIKE ? OR 
+          c.name LIKE ? OR
+          s.name LIKE ? -- Pencarian berdasarkan nama subkategori
+        )
       AND b.status = 'approved'
       LIMIT 25;
     `;
 
-    const params = [searchQuery, searchQuery, searchQuery, searchQuery];
+    // Tambahkan parameter kelima untuk s.name
+    const params = [searchQuery, searchQuery, searchQuery, searchQuery, searchQuery];
 
     const [results] = await connection.query(sqlQuery, params);
 

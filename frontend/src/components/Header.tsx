@@ -1,31 +1,28 @@
-// frontend/src/components/Header.tsx
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
-  Bell,
   Settings,
   User,
   LogIn,
   LogOut,
   ChevronDown,
   UserPlus,
-  Crown, // Dari 'incoming'
-  Shield, // Dari 'incoming'
-  KeyRound, // Dari 'current'
+  Crown,
+  Shield,
+  KeyRound,
+  Heart
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const Header = () => {
-  // Menggunakan useAuth yang lebih lengkap dari 'incoming'
   const { user, logout, isAdmin } = useAuth();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const [notificationCount, setNotificationCount] = useState(3);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Logika untuk menutup dropdown (sama di kedua versi)
+  // Logika untuk menutup dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -47,12 +44,7 @@ const Header = () => {
     }
   };
 
-  const handleNotificationClick = () => {
-    console.log('Notifications clicked');
-    setNotificationCount(0);
-  };
-
-  // Logika untuk status langganan dari 'incoming'
+  // Logika untuk status langganan
   const getSubscriptionDisplay = (status: string | null) => {
     if (status === 'PREMIUM') {
       return { text: 'Premium', color: 'text-yellow-500', icon: Crown };
@@ -65,10 +57,16 @@ const Header = () => {
 
   const subscriptionDisplay = user ? getSubscriptionDisplay(user.subscription_status) : null;
 
+  // Helper untuk mendapatkan URL gambar profil yang benar
+  const getProfileImageUrl = (pic: string) => {
+    if (!pic) return '';
+    return pic.startsWith('http') ? pic : `http://localhost:5000/uploads/${pic}`;
+  };
+
   return (
     <header className="bg-white shadow-sm p-4 sticky top-0 z-50">
       <div className="max-w-6xl mx-auto flex items-center justify-between">
-        {/* Brand dengan style gradient dari 'current' */}
+        {/* Brand */}
         <Link
           href="/"
           className="flex items-center hover:opacity-80 transition-opacity"
@@ -81,21 +79,7 @@ const Header = () => {
         <div className="flex items-center gap-4">
           {user ? (
             <>
-              {/* Notifikasi */}
-              <button
-                onClick={handleNotificationClick}
-                className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                title="Notifikasi"
-              >
-                <Bell className="w-6 h-6" />
-                {notificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center px-1 animate-pulse">
-                    {notificationCount > 99 ? '99+' : notificationCount}
-                  </span>
-                )}
-              </button>
-              
-              {/* Link Admin dari 'incoming' */}
+              {/* Link Admin */}
               {isAdmin() && (
                 <Link
                   href="/admin"
@@ -106,15 +90,6 @@ const Header = () => {
                 </Link>
               )}
 
-              {/* Settings */}
-              <Link
-                href="/settings"
-                className="p-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                title="Pengaturan"
-              >
-                <Settings className="w-6 h-6" />
-              </Link>
-
               {/* Profile Dropdown */}
               <div className="relative" ref={dropdownRef}>
                 <button
@@ -122,22 +97,22 @@ const Header = () => {
                   className="flex items-center gap-3 hover:bg-gray-50 rounded-lg p-2 transition-colors"
                 >
                   <div className="flex flex-col text-right">
-                    {/* Logika fallback nama dari 'incoming' */}
                     <span className="text-sm font-medium text-gray-800">
                       {user.name || user.email.split('@')[0] || 'User'}
                     </span>
                     <span className="text-xs text-gray-500">{user.email}</span>
                   </div>
 
-                  {/* Avatar */}
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-md overflow-hidden">
+                  {/* Avatar di Header Luar */}
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-md overflow-hidden relative">
                     {user.profile_picture ? (
                       <Image
-                        src={user.profile_picture}
+                        src={getProfileImageUrl(user.profile_picture)}
                         alt="Profile"
-                        width={40}
-                        height={40}
-                        className="rounded-full object-cover"
+                        fill
+                        sizes="40px"   // <--- Tambahkan baris ini
+                        priority       // <--- Tambahkan baris ini
+                        className="object-cover"
                       />
                     ) : (
                       <User className="w-5 h-5 text-white" />
@@ -156,14 +131,15 @@ const Header = () => {
                     {/* User Info di dalam dropdown */}
                     <div className="px-4 py-3 border-b border-gray-100">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center overflow-hidden">
+                        {/* Avatar di Dalam Dropdown */}
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center overflow-hidden relative">
                           {user.profile_picture ? (
                             <Image
-                              src={user.profile_picture}
+                              src={getProfileImageUrl(user.profile_picture)}
                               alt="Avatar"
-                              width={48}
-                              height={48}
-                              className="rounded-full object-cover"
+                              fill
+                              sizes="48px"  // <--- Tambahkan baris ini
+                              className="object-cover"
                             />
                           ) : (
                             <User className="w-6 h-6 text-white" />
@@ -176,7 +152,6 @@ const Header = () => {
                           <div className="text-sm text-gray-500">
                             {user.email}
                           </div>
-                          {/* Menampilkan status langganan dari 'incoming' */}
                           {subscriptionDisplay ? (
                             <div className={`flex items-center gap-1 mt-1 ${subscriptionDisplay.color}`}>
                               <subscriptionDisplay.icon className="w-3 h-3" />
@@ -203,8 +178,16 @@ const Header = () => {
                         <User className="w-5 h-5 text-gray-500" />
                         <span>Profil Saya</span>
                       </Link>
+
+                      <Link
+                        href="/wishlist"
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-red-50 text-gray-700 hover:text-red-600 transition-colors group"
+                        onClick={() => setShowProfileDropdown(false)}
+                      >
+                        <Heart className="w-5 h-5 text-gray-500 group-hover:text-red-500" />
+                        <span>Wishlist Saya</span>
+                      </Link>
                       
-                      {/* Link Admin Dashboard di dropdown dari 'incoming' */}
                       {isAdmin() && (
                         <Link
                           href="/admin"
@@ -216,7 +199,6 @@ const Header = () => {
                         </Link>
                       )}
 
-                      {/* Link Ubah Password dari 'current', dipindahkan ke sini */}
                       <Link
                         href="/login/change-password"
                         className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-gray-700 transition-colors"
@@ -233,20 +215,6 @@ const Header = () => {
                       >
                         <Settings className="w-5 h-5 text-gray-500" />
                         <span>Pengaturan</span>
-                      </Link>
-
-                      <Link
-                        href="/notifications"
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-gray-700 transition-colors"
-                        onClick={() => setShowProfileDropdown(false)}
-                      >
-                        <Bell className="w-5 h-5 text-gray-500" />
-                        <span>Notifikasi</span>
-                        {notificationCount > 0 && (
-                          <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-1">
-                            {notificationCount}
-                          </span>
-                        )}
                       </Link>
                     </div>
 

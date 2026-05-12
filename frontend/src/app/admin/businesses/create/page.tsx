@@ -32,6 +32,7 @@ type Category = {
   features: string[];
   count: number;
   trending?: boolean;
+  status?: string | null;
 };
 
 export default function CreateSubmissionPage() {
@@ -49,23 +50,12 @@ export default function CreateSubmissionPage() {
       gradient: 'from-blue-500 to-blue-600',
       description: 'Hotel, Villa, Homestay, Guest House',
       features: ['Galeri foto', 'Tipe kamar', 'Fasilitas', 'Lokasi GPS'],
-      count: 156,
-      trending: true
+      count: 500,
+      trending: true,
+      status: null // Aktif
     },
     {
-      id: '2', 
-      name: 'Wisata',
-      slug: 'wisata',
-      icon: MapPin,
-      color: '#10B981',
-      gradient: 'from-green-500 to-emerald-600',
-      description: 'Pantai, Taman, Museum, Tempat Bersejarah',
-      features: ['Jam operasional', 'Tiket masuk', 'Fasilitas', 'Galeri'],
-      count: 89,
-      trending: true
-    },
-    {
-      id: '3',
+      id: '3', // Kuliner pindah ke posisi ke-2
       name: 'Kuliner', 
       slug: 'kuliner',
       icon: Utensils,
@@ -73,7 +63,21 @@ export default function CreateSubmissionPage() {
       gradient: 'from-orange-500 to-red-500',
       description: 'Restoran, Kafe, Warung, Street Food',
       features: ['Menu makanan', 'Harga', 'Jam buka', 'Delivery'],
-      count: 234
+      count: 500,
+      status: null // Aktif
+    },
+    {
+      id: '2', 
+      name: 'Wisata',
+      slug: 'wisata',
+      icon: MapPin,
+      color: '#10B981',
+      gradient: 'from-gray-400 to-gray-500',
+      description: 'Pantai, Taman, Museum, Tempat Bersejarah',
+      features: ['Jam operasional', 'Tiket masuk', 'Fasilitas', 'Galeri'],
+      count: 0,
+      trending: true,
+      status: 'Coming Soon'
     },
     {
       id: '4',
@@ -81,10 +85,11 @@ export default function CreateSubmissionPage() {
       slug: 'hiburan', 
       icon: Camera,
       color: '#8B5CF6',
-      gradient: 'from-purple-500 to-pink-500',
+      gradient: 'from-gray-400 to-gray-500',
       description: 'Karaoke, Bioskop, Club, Arcade, Event',
       features: ['Jam operasional', 'Harga tiket', 'Fasilitas', 'Event'],
-      count: 67
+      count: 0,
+      status: 'Coming Soon'
     },
     {
       id: '5',
@@ -92,10 +97,11 @@ export default function CreateSubmissionPage() {
       slug: 'transportasi',
       icon: Car, 
       color: '#EF4444',
-      gradient: 'from-red-500 to-pink-500',
+      gradient: 'from-gray-400 to-gray-500',
       description: 'Taksi, Travel, Rental, Ferry',
       features: ['Tarif', 'Rute', 'Jadwal', 'Kontak driver'],
-      count: 45
+      count: 0,
+      status: 'Coming Soon'
     },
     {
       id: '6',
@@ -103,10 +109,11 @@ export default function CreateSubmissionPage() {
       slug: 'kesehatan',
       icon: Heart,
       color: '#06B6D4', 
-      gradient: 'from-cyan-500 to-blue-500',
+      gradient: 'from-gray-400 to-gray-500',
       description: 'Rumah Sakit, Klinik, Apotek',
       features: ['Dokter', 'Jadwal praktek', 'Fasilitas', 'BPJS'],
-      count: 78
+      count: 0,
+      status: 'Coming Soon'
     },
     {
       id: '7',
@@ -114,10 +121,11 @@ export default function CreateSubmissionPage() {
       slug: 'pendidikan',
       icon: GraduationCap,
       color: '#84CC16',
-      gradient: 'from-lime-500 to-green-500', 
+      gradient: 'from-gray-400 to-gray-500', 
       description: 'Sekolah, Universitas, Kursus',
       features: ['Program studi', 'Biaya', 'Fasilitas', 'Akreditasi'],
-      count: 123
+      count: 0,
+      status: 'Coming Soon'
     },
     {
       id: '8',
@@ -125,18 +133,18 @@ export default function CreateSubmissionPage() {
       slug: 'belanja',
       icon: ShoppingBag,
       color: '#F97316',
-      gradient: 'from-orange-500 to-amber-500',
+      gradient: 'from-gray-400 to-gray-500',
       description: 'Mall, Toko, Pasar, Supermarket', 
       features: ['Produk', 'Harga', 'Jam buka', 'Promo'],
-      count: 189
+      count: 0,
+      status: 'Coming Soon'
     }
   ];
 
   // Handle category selection
   const handleCategorySelect = (category: Category) => {
-    setSelectedCategory(category.slug);
-    // Redirect ke form spesifik kategori
-    router.push(`/admin/businesses/create/${category.slug}`);
+  if (category.status) return; // Mencegah klik jika statusnya Coming Soon
+  router.push(`/admin/businesses/create/${category.slug}`);
   };
 
   // Stats data
@@ -193,12 +201,22 @@ export default function CreateSubmissionPage() {
                     <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-8 translate-x-8"></div>
                     <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-8 -translate-x-8"></div>
                     
-                    <div className="relative z-10">
+                    <div className="relative z-10 flex flex-col items-center text-center">
                       <Icon className="w-10 h-10 mb-3" />
-                      <h3 className="text-xl font-bold mb-2">{category.name}</h3>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm opacity-90">{category.count} bisnis</span>
-                        <ArrowRight className="w-4 h-4 opacity-75 group-hover:translate-x-1 transition-transform" />
+                      
+                      {/* Nama Kategori & Status */}
+                      <div className="flex flex-col items-center">
+                        <h3 className="text-xl font-bold leading-tight">{category.name}</h3>
+                        {category.status && (
+                          <span className="text-[11px] font-medium opacity-90 italic mt-1 bg-black/20 px-2 py-0.5 rounded-full">
+                            ({category.status})
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between w-full mt-4">
+                        <span className="text-xs opacity-90">{category.count} bisnis</span>
+                        {!category.status && <ArrowRight className="w-4 h-4 opacity-75 group-hover:translate-x-1 transition-transform" />}
                       </div>
                     </div>
                   </div>

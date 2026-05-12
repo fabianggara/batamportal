@@ -1,23 +1,26 @@
-// frontend/src/app/admin/businesses/create/akomodasi/page.tsx
-
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Cropper from 'react-easy-crop';
 import { 
     ArrowLeft, Building2, MapPin, Phone, Globe, Upload, Mail, AlertCircle,
-    Loader2, X, Camera, Wifi, Car, Waves, Dumbbell, Coffee, Utensils, AirVent, Tv,
-    Bath, Bed, Users, Plus, Minus, Check, Bell,
-    Dog // <--- FIX: Dog Icon Ditambahkan di sini
+    Loader2, X, Camera, Wifi, Car, Waves, Dumbbell, Utensils, AirVent, Tv,
+    Check, Star, Dog, Activity, Save, Banknote, Gem, // <-- Ikon Gem, Banknote, dan Save sudah ditambahkan
+    Coffee, Accessibility, Shirt, Briefcase, BellRing, Baby, Bus, Flower2, Wine, Ban 
 } from 'lucide-react';
 
 // --- INTERFACES ---
+interface Tag {
+    id: number;
+    name: string;
+    type: string;
+}
 
 interface HotelFormData {
     nama: string;
     alamat: string;
-    kategori: string; // 'akomodasi' (Statik, ID 1 di DB)
-    subkategori: string; // Slug subkategori (misal: 'hotel-bintang-4')
+    subkategori: string; // <-- Kerangka subkategori sudah ditambahkan agar TS tidak error
     kontak: string;
     website: string;
     email: string;
@@ -25,8 +28,8 @@ interface HotelFormData {
     logo: File | null;
     latitude: string;
     longitude: string;
-    checkIn: string; // Waktu untuk business_hours.open_time
-    checkOut: string; // Waktu untuk business_hours.close_time
+    price: string; 
+    star_rating: string; 
 }
 
 interface MediaFile {
@@ -36,66 +39,139 @@ interface MediaFile {
     category: string;
 }
 
-interface Facility {
-    id: string; // ID string untuk mapping ke tabel FACILITIES (e.g., 'WiFi Gratis')
-    name: string;
-    icon: React.ElementType;
-    category: string;
-}
 
-interface RoomType {
-    id: string;
-    name: string;
-    description: string;
-    size: string; 
-    capacity: number;
-    bedType: string;
-    price: number;
-}
-// ------------------------------------------
+const createImage = (url: string): Promise<HTMLImageElement> =>
+    new Promise((resolve, reject) => {
+        const image = new Image();
+        image.addEventListener('load', () => resolve(image));
+        image.addEventListener('error', (error) => reject(error));
+        image.src = url;
+    });
+
+const getCroppedImg = async (imageSrc: string, pixelCrop: any): Promise<File> => {
+    const image = await createImage(imageSrc);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) throw new Error('No 2d context');
+
+    canvas.width = pixelCrop.width;
+    canvas.height = pixelCrop.height;
+
+    ctx.drawImage(
+        image,
+        pixelCrop.x,
+        pixelCrop.y,
+        pixelCrop.width,
+        pixelCrop.height,
+        0,
+        0,
+        pixelCrop.width,
+        pixelCrop.height
+    );
+
+    return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+            if (!blob) {
+                reject(new Error('Canvas is empty'));
+                return;
+            }
+            const file = new File([blob], `cropped_${Date.now()}.jpg`, { type: 'image/jpeg' });
+            resolve(file);
+        }, 'image/jpeg', 0.9);
+    });
+};
+
+// FUNGSI PINTAR UNTUK MENDETEKSI IKON
+const getIconForTag = (name: string, type: string) => {
+    const lower = name.toLowerCase();
+    
+    if (lower.includes('wifi')) return Wifi;
+    if (lower.includes('sarapan') || lower.includes('breakfast')) return Coffee;
+    if (lower.includes('parkir') || lower.includes('parking')) return Car;
+    if (lower.includes('akses') || lower.includes('accessible') || lower.includes('difabel')) return Accessibility;
+    if (lower.includes('kolam') || lower.includes('renang') || lower.includes('pool')) return Waves;
+    if (lower.includes('ac') || lower.includes('pendingin') || lower.includes('air-conditioned')) return AirVent;
+    if (lower.includes('laundry') || lower.includes('cuci')) return Shirt;
+    if (lower.includes('bisnis') || lower.includes('business')) return Briefcase;
+    if (lower.includes('hewan') || lower.includes('pet')) return Dog;
+    if (lower.includes('layanan kamar') || lower.includes('room service')) return BellRing;
+    if (lower.includes('anak') || lower.includes('kid') || lower.includes('keluarga')) return Baby;
+    if (lower.includes('restoran') || lower.includes('makan') || lower.includes('restaurant')) return Utensils;
+    if (lower.includes('bandara') || lower.includes('shuttle') || lower.includes('antar')) return Bus;
+    if (lower.includes('spa') || lower.includes('pijat')) return Flower2;
+    if (lower.includes('gym') || lower.includes('bugar') || lower.includes('fitness')) return Dumbbell;
+    if (lower.includes('bar') || lower.includes('minum')) return Wine;
+    if (lower.includes('bebas asap') || lower.includes('smoke-free') || lower.includes('rokok')) return Ban;
+    if (lower.includes('tv') || lower.includes('televisi')) return Tv;
+    if (type === 'Area') return MapPin;
+    if (type === 'Aktivitas') return Activity;
+    
+    return Check; 
+};
 
 export default function HotelFullForm() {
     const router = useRouter();
     const [formData, setFormData] = useState<HotelFormData>({
-        nama: '', alamat: '', kategori: 'akomodasi', subkategori: '', kontak: '', website: '', email: '',
-        deskripsi: '', logo: null, latitude: '', longitude: '', checkIn: '14:00', checkOut: '12:00'
+        nama: '', alamat: '', subkategori: '', kontak: '', website: '', email: '',
+        deskripsi: '', logo: null, latitude: '', longitude: '', price: '', star_rating: ''
     });
+
+    const subcategories = [
+        { name: 'Hotel', slug: 'hotel' },
+        { name: 'Resort', slug: 'resort' },
+        { name: 'Villa', slug: 'villa' },
+        { name: 'Guesthouse', slug: 'guesthouse' },
+        { name: 'Apartemen', slug: 'apartemen' }
+    ];
 
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
     const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
-    const [selectedFacilities, setSelectedFacilities] = useState<string[]>([]); 
-    const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
+    const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+    const [tempLogoUrl, setTempLogoUrl] = useState<string | null>(null);
+    const [crop, setCrop] = useState({ x: 0, y: 0 });
+    const [zoom, setZoom] = useState(1);
+    const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+    const [selectedTags, setSelectedTags] = useState<string[]>([]); 
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [showSuccess, setShowSuccess] = useState(false);
+    const [availableFasilitas, setAvailableFasilitas] = useState<Tag[]>([]);
+    const [availableAktivitas, setAvailableAktivitas] = useState<Tag[]>([]);
+    const [availableArea, setAvailableArea] = useState<Tag[]>([]);
 
-    // Data statis subkategori (MATCHES TABLE SUBCATEGORIES SLUG)
-    const subcategories = [
-        { id: 1, nama: 'Hotel Bintang 5', slug: 'hotel-bintang-5' },
-        { id: 2, nama: 'Hotel Bintang 4', slug: 'hotel-bintang-4' },
-        { id: 3, nama: 'Hotel Bintang 3', slug: 'hotel-bintang-3' },
-        { id: 4, nama: 'Guest House', slug: 'guest-house' },
-        { id: 5, nama: 'Homestay', slug: 'homestay' },
-        { id: 6, nama: 'Villa', slug: 'villa' },
-        { id: 7, nama: 'Resort', slug: 'resort' },
-        { id: 8, nama: 'Apartment', slug: 'apartment' }
-    ];
+    useEffect(() => {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+        
+        const fetchData = async () => {
+            try {
+                const [fasilitasRes, kulinerRes, aktivitasRes, areaRes] = await Promise.all([
+                    fetch(`${API_URL}/api/tags?type=Fasilitas`),
+                    fetch(`${API_URL}/api/tags?type=Jenis Kuliner`),
+                    fetch(`${API_URL}/api/tags?type=Aktivitas`),
+                    fetch(`${API_URL}/api/tags?type=Area`)
+                ]);
 
-    // Data statis fasilitas (ID string harus sesuai dengan kolom 'name' di tabel FACILITIES)
-    const availableFacilities: Facility[] = [
-        { id: 'WiFi Gratis', name: 'Wi-Fi Gratis', icon: Wifi, category: 'basic' },
-        { id: 'Parkir Gratis', name: 'Parkir Gratis', icon: Car, category: 'basic' },
-        { id: 'Kolam Renang', name: 'Kolam Renang', icon: Waves, category: 'general' },
-        { id: 'Pusat Kebugaran', name: 'Pusat Kebugaran', icon: Dumbbell, category: 'wellness' },
-        { id: 'Restoran', name: 'Restoran', icon: Utensils, category: 'dining' },
-        { id: 'Sarapan Gratis', name: 'Sarapan Gratis', icon: Coffee, category: 'dining' },
-        { id: 'Layanan Kamar', name: 'Layanan Kamar', icon: Bell, category: 'service' },
-        { id: 'AC', name: 'AC', icon: AirVent, category: 'comfort' },
-        { id: 'Televisi', name: 'Televisi', icon: Tv, category: 'room' },
-        { id: 'Hewan Peliharaan Diizinkan', name: 'Hewan Peliharaan Diizinkan', icon: Dog, category: 'policy' },
-        { id: 'Spa', name: 'Spa', icon: Bath, category: 'wellness' }, 
-        { id: 'Business Center', name: 'Business Center', icon: Building2, category: 'business' },
-    ];
+                let fasData = [], kulData = [], aktData = [], areaData = [];
+                
+                if (fasilitasRes.ok) fasData = (await fasilitasRes.json()).data || [];
+                if (kulinerRes.ok) kulData = (await kulinerRes.json()).data || [];
+                if (aktivitasRes.ok) aktData = (await aktivitasRes.json()).data || [];
+                if (areaRes.ok) areaData = (await areaRes.json()).data || [];
+
+                const filteredRestoran = kulData.filter((item: Tag) => 
+                    item.name.toLowerCase() === 'restoran'
+                );
+
+                setAvailableFasilitas([...fasData, ...filteredRestoran]);
+                setAvailableAktivitas(aktData);
+                setAvailableArea(areaData);
+            } catch (err) {
+                console.error("Gagal memuat tags:", err);
+            }
+        };
+        fetchData();
+    }, []);
 
     const handleInputChange = (field: keyof HotelFormData, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -112,20 +188,33 @@ export default function HotelFullForm() {
             setErrors(prev => ({ ...prev, logo: "Ukuran file tidak boleh melebihi 5MB" }));
             return;
         }
-
         if (!file.type.match(/^image\/(jpeg|jpg|png|webp)$/)) {
             setErrors(prev => ({ ...prev, logo: "Format file harus JPG, PNG, atau WebP" }));
             return;
         }
 
-        setFormData(prev => ({ ...prev, logo: file }));
-        setErrors(prev => ({ ...prev, logo: "" }));
-
         const reader = new FileReader();
         reader.onload = (e) => {
-            setLogoPreview(e.target?.result as string);
+            setTempLogoUrl(e.target?.result as string);
+            setIsCropModalOpen(true); // Buka modal crop
+            setZoom(1);
         };
         reader.readAsDataURL(file);
+        event.target.value = ''; // Reset input
+    };
+
+    const handleCropComplete = async () => {
+        if (!tempLogoUrl || !croppedAreaPixels) return;
+        try {
+            const croppedFile = await getCroppedImg(tempLogoUrl, croppedAreaPixels);
+            setFormData(prev => ({ ...prev, logo: croppedFile }));
+            setLogoPreview(URL.createObjectURL(croppedFile));
+            setIsCropModalOpen(false);
+            setErrors(prev => ({ ...prev, logo: "" }));
+        } catch (e) {
+            console.error(e);
+            alert("Gagal memotong gambar!");
+        }
     };
 
     const handleGalleryUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -133,24 +222,18 @@ export default function HotelFullForm() {
         if (!files || files.length === 0) return;
 
         const newMedia: MediaFile[] = [];
-        
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             if (file.size > 10 * 1024 * 1024) continue;
             
             let mediaType: 'photo' | 'video';
-            if (file.type.startsWith('image/')) {
-                mediaType = 'photo';
-            } else if (file.type.startsWith('video/')) {
-                mediaType = 'video';
-            } else {
-                continue;
-            }
+            if (file.type.startsWith('image/')) mediaType = 'photo';
+            else if (file.type.startsWith('video/')) mediaType = 'video';
+            else continue;
             
             const previewUrl = URL.createObjectURL(file);
             newMedia.push({ file, type: mediaType, preview: previewUrl, category: 'general' }); 
         }
-
         setMediaFiles(prev => [...prev, ...newMedia]);
     };
 
@@ -158,35 +241,35 @@ export default function HotelFullForm() {
         setMediaFiles(prev => prev.filter((_, i) => i !== index));
     };
 
-    const toggleFacility = (facilityId: string) => {
-        setSelectedFacilities(prev => 
-            prev.includes(facilityId) 
-                ? prev.filter(id => id !== facilityId)
-                : [...prev, facilityId]
-        );
-    };
+    // Logika Eksklusif Label Harga & Batasan Maks 3 Aktivitas
+    const toggleTagByName = (tagName: string) => {
+        setSelectedTags(prev => {
+            let nextTags = [...prev];
 
-    const addRoomType = () => {
-        const newRoom: RoomType = {
-            id: `room_${Date.now()}`,
-            name: '',
-            description: '',
-            size: '',
-            capacity: 2,
-            bedType: '',
-            price: 0
-        };
-        setRoomTypes(prev => [...prev, newRoom]);
-    };
+            // Logika Hotel Mahal vs Hotel Murah
+            if (tagName === 'Mewah / Mahal') {
+                nextTags = nextTags.filter(t => t !== 'Budget / Murah');
+            } else if (tagName === 'Budget / Murah') {
+                nextTags = nextTags.filter(t => t !== 'Mewah / Mahal');
+            }
 
-    const updateRoomType = (roomId: string, field: keyof RoomType, value: any) => {
-        setRoomTypes(prev => prev.map(room => 
-            room.id === roomId ? { ...room, [field]: value } : room
-        ));
-    };
-
-    const removeRoomType = (roomId: string) => {
-        setRoomTypes(prev => prev.filter(room => room.id !== roomId));
+            if (nextTags.includes(tagName)) {
+                return nextTags.filter(t => t !== tagName);
+            } else {
+                const isAktivitas = availableAktivitas.some(a => a.name === tagName);
+                if (isAktivitas) {
+                    const currentAktivitasCount = nextTags.filter(t => 
+                        availableAktivitas.some(a => a.name === t)
+                    ).length;
+                    
+                    if (currentAktivitasCount >= 3) {
+                        // HAPUS ALERT: Cukup kembalikan array prev tanpa menambah tag baru
+                        return nextTags;
+                    }
+                }
+                return [...nextTags, tagName];
+            }
+        });
     };
 
     const validateForm = (): boolean => {
@@ -194,13 +277,12 @@ export default function HotelFullForm() {
 
         if (!formData.nama.trim()) newErrors.nama = 'Nama hotel wajib diisi';
         if (!formData.alamat.trim()) newErrors.alamat = 'Alamat wajib diisi';
-        if (!formData.subkategori) newErrors.subkategori = 'Jenis akomodasi wajib dipilih';
         if (!formData.kontak.trim()) newErrors.kontak = 'Kontak wajib diisi';
+        if (!formData.subkategori) newErrors.subkategori = 'Subkategori wajib dipilih';
         
         if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
             newErrors.email = 'Format email tidak valid';
         }
-
         if (formData.website && !formData.website.match(/^https?:\/\/.+/)) {
             newErrors.website = 'Website harus dimulai dengan http:// atau https://';
         }
@@ -209,11 +291,11 @@ export default function HotelFullForm() {
         return Object.keys(newErrors).length === 0;
     };
 
-    // --- FUNGSI SUBMIT DENGAN KONEKSI DATABASE NYATA ---
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
 
         if (!validateForm()) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
 
@@ -221,31 +303,32 @@ export default function HotelFullForm() {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
         const SUBMIT_URL = `${API_URL}/api/businesses`; 
 
-        // 1. Kumpulkan data ke FormData (wajib untuk file upload)
         const data = new FormData();
         
-        // Data Teks dan Nilai Numerik (Tabel businesses)
-        Object.keys(formData).forEach(key => {
-            const value = formData[key as keyof HotelFormData];
-            if (typeof value === 'string') {
-                data.append(key, value);
-            }
-        });
+        data.append('nama', formData.nama);            
+        data.append('alamat', formData.alamat);        
+        data.append('kontak', formData.kontak);        
+        data.append('deskripsi', formData.deskripsi);  
+        data.append('subkategori', formData.subkategori); 
         
-        // Data Array (Tabel business_facilities & room_types)
-        data.append('selectedFacilities', JSON.stringify(selectedFacilities)); 
-        data.append('roomTypes', JSON.stringify(roomTypes));
+        data.append('category_id', '1'); 
+        data.append('email', formData.email);
+        data.append('website', formData.website);
+        data.append('latitude', formData.latitude);
+        data.append('longitude', formData.longitude);
+        data.append('price', formData.price);
+        data.append('star_rating', formData.star_rating);
+        data.append('status', 'approved');
 
-        // Data File (thumbnail_image & business_media)
+        data.append('selectedFacilities', JSON.stringify(selectedTags)); 
+
         if (formData.logo) {
-            data.append('thumbnail_picture', formData.logo); // fieldname 'thumbnail_picture'
+            data.append('thumbnail_picture', formData.logo); 
         }
-        
         mediaFiles.forEach((media) => {
-            data.append('media_files', media.file); // fieldname 'media_files'
+            data.append('media_files', media.file);
         });
 
-        // 2. Kirim ke API (POST)
         try {
             const response = await fetch(SUBMIT_URL, {
                 method: 'POST',
@@ -255,10 +338,9 @@ export default function HotelFullForm() {
             const result = await response.json();
 
             if (!response.ok) {
-                throw new Error(result.error || 'Terjadi kesalahan saat mengirim data. Cek input Anda.');
+                throw new Error(result.error || result.message || 'Gagal menyimpan data ke database.');
             }
 
-            // 3. Sukses
             setShowSuccess(true);
             setErrors({});
 
@@ -269,7 +351,6 @@ export default function HotelFullForm() {
             setIsLoading(false);
         }
     };
-    // --------------------------------------------------------------------
 
     if (showSuccess) {
         return (
@@ -280,13 +361,13 @@ export default function HotelFullForm() {
                     </div>
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">Berhasil Didaftarkan!</h2>
                     <p className="text-gray-600 mb-6">
-                        Hotel Anda telah berhasil didaftarkan dan akan diverifikasi dalam 1-2 hari kerja.
+                        Akomodasi Anda telah berhasil disimpan dan langsung berstatus Aktif.
                     </p>
                     <button 
                         onClick={() => router.push('/admin/businesses')}
                         className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
                     >
-                        Kembali ke Dashboard
+                        Kembali ke Kelola Destinasi
                     </button>
                 </div>
             </div>
@@ -294,8 +375,7 @@ export default function HotelFullForm() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Header */}
+        <div className="min-h-screen bg-gray-50 pb-12">
             <div className="bg-white shadow-sm sticky top-0 z-40">
                 <div className="max-w-6xl mx-auto px-4 py-4">
                     <div className="flex items-center justify-between">
@@ -307,24 +387,22 @@ export default function HotelFullForm() {
                                 <ArrowLeft className="w-5 h-5" />
                             </button>
                             <div>
-                                <h1 className="text-xl font-bold text-gray-800">Daftarkan Hotel/Akomodasi</h1>
-                                <p className="text-sm text-gray-500">Lengkapi semua informasi hotel Anda</p>
+                                <h1 className="text-xl font-bold text-gray-800">Tambah Data Akomodasi</h1>
+                                <p className="text-sm text-gray-500">Lengkapi form sesuai dengan format database</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <div className="bg-blue-100 p-2 rounded-lg">
-                                <Building2 className="w-5 h-5 text-blue-600" />
-                            </div>
+                        <div className="bg-blue-100 p-2 rounded-lg">
+                            <Building2 className="w-5 h-5 text-blue-600" />
                         </div>
                     </div>
                 </div>
             </div>
 
             {errors.general && (
-                <div className="max-w-6xl mx-auto px-4 mt-4">
-                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                        <strong className="font-bold">Error! </strong>
-                        <span className="block sm:inline">{errors.general}</span>
+                <div className="max-w-6xl mx-auto px-4 mt-6">
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5" />
+                        <span className="font-medium">{errors.general}</span>
                     </div>
                 </div>
             )}
@@ -333,61 +411,93 @@ export default function HotelFullForm() {
                 <form onSubmit={handleSubmit} className="space-y-8">
                     
                     {/* Informasi Dasar */}
-                    <div className="bg-white rounded-2xl shadow-sm p-6">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-6">Informasi Dasar Hotel</h2>
+                    <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                        <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                            Informasi Dasar
+                        </h2>
                         
                         <div className="space-y-6">
-                            {/* Nama & Jenis */}
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Nama Destinasi <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.nama}
+                                    onChange={(e) => handleInputChange('nama', e.target.value)}
+                                    placeholder="Contoh: Hotel Grand Batam"
+                                    className={`w-full p-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none ${
+                                        errors.nama ? 'border-red-300' : 'border-gray-200'
+                                    }`}
+                                />
+                                {errors.nama && <p className="text-sm text-red-600 mt-1">{errors.nama}</p>}
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Nama Hotel/Akomodasi <span className="text-red-500">*</span>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Tipe Akomodasi <span className="text-red-500">*</span></label>
+                                    <select 
+                                        value={formData.subkategori} 
+                                        onChange={(e) => {
+                                            handleInputChange('subkategori', e.target.value);
+                                            // Reset bintang jika bukan hotel/resort
+                                            if (e.target.value !== 'hotel' && e.target.value !== 'resort') {
+                                                handleInputChange('star_rating', ''); 
+                                            }
+                                        }} 
+                                        className={`w-full p-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white ${errors.subkategori ? 'border-red-300' : 'border-gray-200'}`}
+                                    >
+                                        <option value="">Pilih Tipe...</option>
+                                        {subcategories.map(sub => (<option key={sub.slug} value={sub.slug}>{sub.name}</option>))}
+                                    </select>
+                                    {errors.subkategori && <p className="text-sm text-red-600 mt-1">{errors.subkategori}</p>}
+                                </div>
+
+                               <div>
+                                    <label className={`text-sm font-semibold mb-2 flex items-center gap-1 ${
+                                        (formData.subkategori === 'hotel' || formData.subkategori === 'resort') ? 'text-gray-700' : 'text-gray-400'
+                                    }`}>
+                                        <Star className={`w-4 h-4 ${
+                                            (formData.subkategori === 'hotel' || formData.subkategori === 'resort') ? 'text-yellow-500' : 'text-gray-300'
+                                        }`} /> Klasifikasi Bintang
                                     </label>
-                                    <input
-                                        type="text"
-                                        value={formData.nama}
-                                        onChange={(e) => handleInputChange('nama', e.target.value)}
-                                        placeholder="Contoh: Hotel Grand Batam"
-                                        className={`w-full p-4 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${
-                                            errors.nama ? 'border-red-300' : 'border-gray-300'
+                                    <select
+                                        value={formData.star_rating}
+                                        onChange={(e) => handleInputChange('star_rating', e.target.value)}
+                                        disabled={!(formData.subkategori === 'hotel' || formData.subkategori === 'resort')}
+                                        className={`w-full p-3.5 border rounded-xl outline-none transition-colors ${
+                                            (formData.subkategori === 'hotel' || formData.subkategori === 'resort')
+                                            ? 'border-gray-200 focus:ring-2 focus:ring-blue-500 bg-white'
+                                            : 'border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed'
                                         }`}
-                                    />
-                                    {errors.nama && (
-                                        <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
-                                            <AlertCircle className="w-4 h-4" />
-                                            {errors.nama}
-                                        </p>
+                                    >
+                                        <option value="">Tidak ada klasifikasi (Kosong)</option>
+                                        <option value="1">1 Bintang</option>
+                                        <option value="2">2 Bintang</option>
+                                        <option value="3">3 Bintang</option>
+                                        <option value="4">4 Bintang</option>
+                                        <option value="5">5 Bintang</option>
+                                    </select>
+                                    {/* Keterangan muncul saat dropdown terkunci */}
+                                    {!(formData.subkategori === 'hotel' || formData.subkategori === 'resort') && formData.subkategori !== '' && (
+                                        <p className="text-xs text-gray-400 mt-1">Hanya berlaku untuk Hotel & Resort</p>
                                     )}
                                 </div>
 
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Jenis Akomodasi <span className="text-red-500">*</span>
+                                        Harga Rata-Rata / Mulai Dari (Rp)
                                     </label>
-                                    <select
-                                        value={formData.subkategori}
-                                        onChange={(e) => handleInputChange('subkategori', e.target.value)}
-                                        className={`w-full p-4 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${
-                                            errors.subkategori ? 'border-red-300' : 'border-gray-300'
-                                        }`}
-                                    >
-                                        <option value="">Pilih Jenis Akomodasi</option>
-                                        {subcategories.map((sub) => (
-                                            <option key={sub.id} value={sub.slug}>
-                                                {sub.nama}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {errors.subkategori && (
-                                        <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
-                                            <AlertCircle className="w-4 h-4" />
-                                            {errors.subkategori}
-                                        </p>
-                                    )}
+                                    <input
+                                        type="number"
+                                        value={formData.price}
+                                        onChange={(e) => handleInputChange('price', e.target.value)}
+                                        placeholder="Contoh: 500000"
+                                        className="w-full p-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
                                 </div>
                             </div>
 
-                            {/* Alamat */}
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                                     Alamat Lengkap <span className="text-red-500">*</span>
@@ -395,139 +505,76 @@ export default function HotelFullForm() {
                                 <textarea
                                     value={formData.alamat}
                                     onChange={(e) => handleInputChange('alamat', e.target.value)}
-                                    placeholder="Jl. Hang Tuah No. 123, Batam Center, Kota Batam"
-                                    rows={3}
-                                    className={`w-full p-4 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none ${
-                                        errors.alamat ? 'border-red-300' : 'border-gray-300'
+                                    placeholder="Alamat detail..."
+                                    rows={2}
+                                    className={`w-full p-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none ${
+                                        errors.alamat ? 'border-red-300' : 'border-gray-200'
                                     }`}
                                 />
-                                {errors.alamat && (
-                                    <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
-                                        <AlertCircle className="w-4 h-4" />
-                                        {errors.alamat}
-                                    </p>
-                                )}
+                                {errors.alamat && <p className="text-sm text-red-600 mt-1">{errors.alamat}</p>}
                             </div>
 
-                            {/* Deskripsi */}
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Deskripsi Hotel
+                                    Deskripsi Panjang
                                 </label>
                                 <textarea
                                     value={formData.deskripsi}
                                     onChange={(e) => handleInputChange('deskripsi', e.target.value)}
-                                    placeholder="Ceritakan tentang hotel Anda, fasilitas yang tersedia, keunggulan, dan hal menarik lainnya..."
+                                    placeholder="Ceritakan tentang akomodasi ini..."
                                     rows={4}
-                                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+                                    className="w-full p-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none"
                                 />
                             </div>
                         </div>
                     </div>
 
-                    {/* Kontak & Operasional */}
-                    <div className="bg-white rounded-2xl shadow-sm p-6">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-6">Kontak & Jam Operasional</h2>
+                    {/* Kontak */}
+                    <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                        <h2 className="text-xl font-bold text-gray-800 mb-6">Kontak Bisnis</h2>
                         
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Nomor Telepon <span className="text-red-500">*</span>
-                                    </label>
-                                    <div className="relative">
-                                        <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                        <input
-                                            type="tel"
-                                            value={formData.kontak}
-                                            onChange={(e) => handleInputChange('kontak', e.target.value)}
-                                            placeholder="0778-123456"
-                                            className={`w-full pl-12 pr-4 py-4 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${
-                                                errors.kontak ? 'border-red-300' : 'border-gray-300'
-                                            }`}
-                                        />
-                                    </div>
-                                    {errors.kontak && (
-                                        <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
-                                            <AlertCircle className="w-4 h-4" />
-                                            {errors.kontak}
-                                        </p>
-                                    )}
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Email
-                                    </label>
-                                    <div className="relative">
-                                        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                        <input
-                                            type="email"
-                                            value={formData.email}
-                                            onChange={(e) => handleInputChange('email', e.target.value)}
-                                            placeholder="info@hotel.com"
-                                            className={`w-full pl-12 pr-4 py-4 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${
-                                                errors.email ? 'border-red-300' : 'border-gray-300'
-                                            }`}
-                                        />
-                                    </div>
-                                    {errors.email && (
-                                        <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
-                                            <AlertCircle className="w-4 h-4" />
-                                            {errors.email}
-                                        </p>
-                                    )}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    No. Telepon <span className="text-red-500">*</span>
+                                </label>
+                                <div className="relative">
+                                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <input
+                                        type="tel"
+                                        value={formData.kontak}
+                                        onChange={(e) => handleInputChange('kontak', e.target.value)}
+                                        placeholder="0778-123456"
+                                        className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none ${errors.kontak ? 'border-red-300' : 'border-gray-200'}`}
+                                    />
                                 </div>
                             </div>
 
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Website
-                                    </label>
-                                    <div className="relative">
-                                        <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                        <input
-                                            type="url"
-                                            value={formData.website}
-                                            onChange={(e) => handleInputChange('website', e.target.value)}
-                                            placeholder="https://www.hotel.com"
-                                            className={`w-full pl-12 pr-4 py-4 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${
-                                                errors.website ? 'border-red-300' : 'border-gray-300'
-                                            }`}
-                                        />
-                                    </div>
-                                    {errors.website && (
-                                        <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
-                                            <AlertCircle className="w-4 h-4" />
-                                            {errors.website}
-                                        </p>
-                                    )}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <input
+                                        type="email"
+                                        value={formData.email}
+                                        onChange={(e) => handleInputChange('email', e.target.value)}
+                                        placeholder="info@hotel.com"
+                                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
                                 </div>
+                            </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Check-in
-                                        </label>
-                                        <input
-                                            type="time"
-                                            value={formData.checkIn}
-                                            onChange={(e) => handleInputChange('checkIn', e.target.value)}
-                                            className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Check-out
-                                        </label>
-                                        <input
-                                            type="time"
-                                            value={formData.checkOut}
-                                            onChange={(e) => handleInputChange('checkOut', e.target.value)}
-                                            className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                                        />
-                                    </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Website (Opsional)</label>
+                                <div className="relative">
+                                    <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <input
+                                        type="url"
+                                        value={formData.website}
+                                        onChange={(e) => handleInputChange('website', e.target.value)}
+                                        placeholder="https://..."
+                                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -535,39 +582,23 @@ export default function HotelFullForm() {
 
                     {/* Logo & Galeri */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* Logo Upload */}
-                        <div className="bg-white rounded-2xl shadow-sm p-6">
-                            <h2 className="text-xl font-bold text-gray-800 mb-4">Logo Hotel</h2>
-                            
+                        <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                            <h2 className="text-xl font-bold text-gray-800 mb-4">Gambar Utama (Thumbnail)</h2>
                             {!logoPreview ? (
-                                <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-gray-400 transition-colors">
-                                    <input
-                                        type="file"
-                                        accept="image/jpeg,image/jpg,image/png,image/webp"
-                                        onChange={handleLogoChange}
-                                        className="hidden"
-                                        id="logo-upload"
-                                    />
-                                    <label htmlFor="logo-upload" className="cursor-pointer">
-                                        <Camera className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                                        <h3 className="text-lg font-semibold text-gray-700 mb-2">Upload Logo</h3>
-                                        <p className="text-gray-500">PNG, JPG hingga 5MB</p>
+                                <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:bg-gray-50 transition-colors flex flex-col items-center justify-center">
+                                    <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" id="logo-upload"/>
+                                    <label htmlFor="logo-upload" className="cursor-pointer flex flex-col items-center justify-center">
+                                        <Camera className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                                        <h3 className="text-sm font-semibold text-gray-700">Pilih Gambar Utama</h3>
                                     </label>
                                 </div>
                             ) : (
-                                <div className="relative">
-                                    <img 
-                                        src={logoPreview} 
-                                        alt="Logo Preview" 
-                                        className="w-full h-32 object-contain border rounded-xl p-4"
-                                    />
+                                <div className="relative border rounded-xl overflow-hidden h-48 bg-gray-50">
+                                    <img src={logoPreview} alt="Preview" className="w-full h-full object-contain" />
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            setFormData(prev => ({ ...prev, logo: null }));
-                                            setLogoPreview(null);
-                                        }}
-                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors"
+                                        onClick={() => { setFormData(prev => ({ ...prev, logo: null })); setLogoPreview(null); }}
+                                        className="absolute top-2 right-2 bg-red-500/80 text-white rounded-lg p-1.5 hover:bg-red-600"
                                     >
                                         <X className="w-4 h-4" />
                                     </button>
@@ -575,333 +606,287 @@ export default function HotelFullForm() {
                             )}
                         </div>
 
-                        {/* Galeri Upload */}
-                        <div className="bg-white rounded-2xl shadow-sm p-6">
-                            <h2 className="text-xl font-bold text-gray-800 mb-4">Galeri Foto Hotel</h2>
-                            
-                            <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center mb-4">
-                                <input
-                                    type="file"
-                                    accept="image/*,video/*"
-                                    multiple
-                                    onChange={handleGalleryUpload}
-                                    className="hidden"
-                                    id="gallery-upload"
-                                />
-                                <label htmlFor="gallery-upload" className="cursor-pointer">
-                                    <Camera className="w-8 h-8 text-gray-400 mx-auto mb-3" />
-                                    <h4 className="font-medium text-gray-900 mb-1">Upload Foto & Video</h4>
-                                    <p className="text-xs text-blue-600">Klik untuk upload</p>
+                        <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                            <h2 className="text-xl font-bold text-gray-800 mb-4">Galeri Album (Carousel)</h2>
+                            <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:bg-gray-50 transition-colors mb-4 flex flex-col items-center justify-center">
+                                <input type="file" accept="image/*" multiple onChange={handleGalleryUpload} className="hidden" id="gallery-upload" />
+                                <label htmlFor="gallery-upload" className="cursor-pointer flex flex-col items-center justify-center">
+                                    <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                                    <h3 className="text-sm font-semibold text-gray-700">Upload Banyak Gambar</h3>
                                 </label>
                             </div>
 
                             {mediaFiles.length > 0 && (
-                                <div className="grid grid-cols-3 gap-2">
-                                    {mediaFiles.slice(0, 6).map((media, index) => (
-                                        <div key={index} className="relative group">
-                                            <img
-                                                src={media.preview}
-                                                alt={`Preview ${index + 1}`}
-                                                className="w-full h-16 object-cover rounded-lg"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => removeMedia(index)}
-                                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            >
+                                <div className="grid grid-cols-4 gap-2">
+                                    {mediaFiles.slice(0, 8).map((media, index) => (
+                                        <div key={index} className="relative group aspect-square">
+                                            <img src={media.preview} alt="Galeri" className="w-full h-full object-cover rounded-lg border border-gray-200" />
+                                            <button type="button" onClick={() => removeMedia(index)} className="absolute top-1 right-1 bg-red-500 text-white rounded p-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <X className="w-3 h-3" />
                                             </button>
                                         </div>
                                     ))}
                                 </div>
                             )}
-                            
-                            {mediaFiles.length > 6 && (
-                                <p className="text-sm text-gray-500 mt-2">+{mediaFiles.length - 6} foto lainnya</p>
-                            )}
                         </div>
                     </div>
 
-                    {/* Fasilitas */}
-                    <div className="bg-white rounded-2xl shadow-sm p-6">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-4">Fasilitas Hotel</h2>
-                        <p className="text-gray-600 mb-6">Pilih fasilitas yang tersedia di hotel Anda</p>
+                    {/* =========================================
+                        BAGIAN TAGS (FASILITAS, AKTIVITAS, AREA) 
+                    ========================================= */}
+                    
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl shadow-sm p-6 border border-blue-100">
+                        <h2 className="text-xl font-bold text-gray-800 mb-2">Label & Kelas Harga</h2>
+                        <p className="text-sm text-gray-600 mb-4">Tambahkan tag untuk mempermudah pencarian pengunjung berdasarkan *budget* mereka.</p>
                         
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {availableFacilities.map(facility => {
-                                const Icon = facility.icon;
-                                const isSelected = selectedFacilities.includes(facility.id);
-                                return (
-                                    <button
-                                        key={facility.id}
-                                        type="button"
-                                        onClick={() => toggleFacility(facility.id)}
-                                        className={`p-4 border-2 rounded-xl transition-colors ${
-                                            isSelected
-                                                ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                                : 'border-gray-200 hover:border-blue-300 text-gray-600'
-                                        }`}
-                                    >
-                                        <Icon className={`w-6 h-6 mx-auto mb-2 ${isSelected ? 'text-blue-600' : 'text-gray-500'}`} />
-                                        <span className="text-sm font-medium">{facility.name}</span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-
-                        {selectedFacilities.length > 0 && (
-                            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                                <p className="font-medium text-blue-900">
-                                    Fasilitas Terpilih ({selectedFacilities.length})
-                                </p>
-                                <p className="text-sm text-blue-700 mt-1">
-                                    {selectedFacilities.map(id => 
-                                        availableFacilities.find(f => f.id === id)?.name
-                                    ).join(', ')}
-                                </p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Tipe Kamar */}
-                    <div className="bg-white rounded-2xl shadow-sm p-6">
-                        <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <h2 className="text-2xl font-bold text-gray-800">Tipe Kamar</h2>
-                                <p className="text-gray-600">Tambahkan jenis kamar yang tersedia (opsional)</p>
-                            </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <button
                                 type="button"
-                                onClick={addRoomType}
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
+                                onClick={() => toggleTagByName('Mewah / Mahal')}
+                                className={`p-4 border-2 rounded-xl transition-all flex items-center gap-3 ${
+                                    selectedTags.includes('Mewah / Mahal') 
+                                    ? 'border-indigo-500 bg-indigo-100 text-indigo-800 shadow-md' 
+                                    : 'border-white bg-white text-gray-600 hover:border-indigo-200'
+                                }`}
                             >
-                                <Plus className="w-4 h-4" />
-                                Tambah Kamar
+                                <Gem className={`w-6 h-6 ${selectedTags.includes('Mewah / Mahal') ? 'text-indigo-600' : 'text-gray-400'}`} />
+                                <div className="text-left">
+                                    <h3 className="font-bold">Kelas Mewah / Mahal</h3>
+                                    <p className="text-xs opacity-80">Rekomendasi untuk fasilitas mewah dan premium.</p>
+                                </div>
+                            </button>
+                            
+                            <button
+                                type="button"
+                                onClick={() => toggleTagByName('Budget / Murah')}
+                                className={`p-4 border-2 rounded-xl transition-all flex items-center gap-3 ${
+                                    selectedTags.includes('Budget / Murah') 
+                                    ? 'border-emerald-500 bg-emerald-100 text-emerald-800 shadow-md' 
+                                    : 'border-white bg-white text-gray-600 hover:border-emerald-200'
+                                }`}
+                            >
+                                <Banknote className={`w-6 h-6 ${selectedTags.includes('Budget / Murah') ? 'text-emerald-600' : 'text-gray-400'}`} />
+                                <div className="text-left">
+                                    <h3 className="font-bold">Kelas Budget / Murah</h3>
+                                    <p className="text-xs opacity-80">Rekomendasi untuk backpacker dan budget hemat.</p>
+                                </div>
                             </button>
                         </div>
-
-                        {roomTypes.length === 0 ? (
-                            <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-xl">
-                                <Bed className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                                <h3 className="text-lg font-medium text-gray-600 mb-2">Belum ada tipe kamar</h3>
-                                <p className="text-sm text-gray-500 mb-4">Tambahkan tipe kamar yang tersedia</p>
-                                <button
-                                    type="button"
-                                    onClick={addRoomType}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
-                                >
-                                    Tambah Kamar Pertama
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {roomTypes.map((room, index) => (
-                                    <div key={room.id} className="border border-gray-200 rounded-xl p-4 space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="text-lg font-medium text-gray-800">Kamar #{index + 1}</h3>
-                                            <button
-                                                type="button"
-                                                onClick={() => removeRoomType(room.id)}
-                                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                            >
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                    Nama Kamar *
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={room.name}
-                                                    onChange={(e) => updateRoomType(room.id, 'name', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    placeholder="Superior Room"
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                    Ukuran Kamar
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={room.size}
-                                                    onChange={(e) => updateRoomType(room.id, 'size', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    placeholder="25 m²"
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                    Kapasitas Tamu
-                                                </label>
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => updateRoomType(room.id, 'capacity', Math.max(1, room.capacity - 1))}
-                                                        className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                                                    >
-                                                        <Minus className="w-4 h-4" />
-                                                    </button>
-                                                    <span className="px-4 py-2 border border-gray-300 rounded-lg text-center min-w-0">
-                                                        {room.capacity} tamu
-                                                    </span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => updateRoomType(room.id, 'capacity', room.capacity + 1)}
-                                                        className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                                                    >
-                                                        <Plus className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                    Tipe Kasur
-                                                </label>
-                                                <select
-                                                    value={room.bedType}
-                                                    onChange={(e) => updateRoomType(room.id, 'bedType', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                >
-                                                    <option value="">Pilih Tipe Kasur</option>
-                                                    <option value="single">Single Bed</option>
-                                                    <option value="twin">Twin Bed</option>
-                                                    <option value="double">Double Bed</option>
-                                                    <option value="queen">Queen Bed</option>
-                                                    <option value="king">King Bed</option>
-                                                </select>
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                    Harga per Malam (IDR)
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    value={room.price}
-                                                    onChange={(e) => updateRoomType(room.id, 'price', parseFloat(e.target.value) || 0)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    placeholder="500000"
-                                                />
-                                            </div>
-
-                                            <div className="md:col-span-2">
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                    Deskripsi Kamar
-                                                </label>
-                                                <textarea
-                                                    value={room.description}
-                                                    onChange={(e) => updateRoomType(room.id, 'description', e.target.value)}
-                                                    rows={2}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                                    placeholder="Deskripsi singkat tentang kamar ini..."
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
                     </div>
 
-                    {/* Lokasi */}
-                    <div className="bg-white rounded-2xl shadow-sm p-6">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-4">Lokasi Hotel (Opsional)</h2>
-                        <p className="text-gray-600 mb-6">Tentukan koordinat lokasi hotel untuk memudahkan tamu menemukan</p>
+                    {/* 1. Fasilitas & Restoran */}
+                    {availableFasilitas.length > 0 && (
+                        <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                            <h2 className="text-xl font-bold text-gray-800 mb-4">Fasilitas & Restoran</h2>
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                {availableFasilitas.map((tag) => {
+                                    const Icon = getIconForTag(tag.name, tag.type);
+                                    const isSelected = selectedTags.includes(tag.name); 
+                                    return (
+                                        <button
+                                            key={tag.id}
+                                            type="button"
+                                            onClick={() => toggleTagByName(tag.name)}
+                                            className={`p-3 border rounded-xl transition-all flex flex-col items-center justify-center gap-2 ${
+                                                isSelected ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            <Icon className={`w-5 h-5 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
+                                            <span className="text-xs font-medium text-center">{tag.name}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {(() => {
+                        // Hitung jumlah aktivitas yang sudah dipilih
+                        const currentAktivitasCount = selectedTags.filter(t => 
+                            availableAktivitas.some(a => a.name === t)
+                        ).length;
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        // Cek apakah sudah mencapai batas maksimal (3)
+                        const isAktivitasMaxed = currentAktivitasCount >= 3;
+
+                        return availableAktivitas.length > 0 && (
+                            <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-xl font-bold text-gray-800">Aktivitas di Sekitar</h2>
+                                    
+                                    {/* Pesan Peringatan Merah (Muncul jika max) */}
+                                    {isAktivitasMaxed && (
+                                        <span className="text-sm font-semibold text-red-500 bg-red-50 px-3 py-1 rounded-full animate-pulse">
+                                            Maksimal 3 aktivitas terpilih
+                                        </span>
+                                    )}
+                                </div>
+                                
+                                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                    {availableAktivitas.map((tag) => {
+                                        const Icon = getIconForTag(tag.name, tag.type);
+                                        const isSelected = selectedTags.includes(tag.name); 
+                                        
+                                        // Tombol dinonaktifkan jika kuota penuh DAN tombol ini belum dipilih
+                                        const isDisabled = isAktivitasMaxed && !isSelected;
+
+                                        return (
+                                            <button
+                                                key={tag.id}
+                                                type="button"
+                                                onClick={() => toggleTagByName(tag.name)}
+                                                disabled={isDisabled}
+                                                className={`p-3 border rounded-xl transition-all flex flex-col items-center justify-center gap-2 ${
+                                                    isSelected 
+                                                    ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm' 
+                                                    : isDisabled
+                                                        ? 'border-gray-100 bg-gray-50 text-gray-300 opacity-60 cursor-not-allowed'
+                                                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                <Icon className={`w-5 h-5 ${isSelected ? 'text-blue-600' : isDisabled ? 'text-gray-300' : 'text-gray-400'}`} />
+                                                <span className="text-xs font-medium text-center">{tag.name}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* 3. Area / Lokasi */}
+                    {availableArea.length > 0 && (
+                        <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                            <h2 className="text-xl font-bold text-gray-800 mb-4">Area & Lokasi</h2>
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                {availableArea.map((tag) => {
+                                    const Icon = getIconForTag(tag.name, tag.type);
+                                    const isSelected = selectedTags.includes(tag.name); 
+                                    return (
+                                        <button
+                                            key={tag.id}
+                                            type="button"
+                                            onClick={() => toggleTagByName(tag.name)}
+                                            className={`p-3 border rounded-xl transition-all flex flex-col items-center justify-center gap-2 ${
+                                                isSelected ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            <Icon className={`w-5 h-5 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
+                                            <span className="text-xs font-medium text-center">{tag.name}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Lokasi Peta */}
+                    <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                        <h2 className="text-xl font-bold text-gray-800 mb-4">Koordinat Peta (GPS)</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Latitude
-                                    </label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
                                     <input
                                         type="text"
                                         value={formData.latitude}
                                         onChange={(e) => handleInputChange('latitude', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        placeholder="Contoh: 1.1304753"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-blue-500 text-sm"
+                                        placeholder="1.1304753"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Longitude
-                                    </label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
                                     <input
                                         type="text"
                                         value={formData.longitude}
                                         onChange={(e) => handleInputChange('longitude', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        placeholder="Contoh: 104.0524807"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-blue-500 text-sm"
+                                        placeholder="104.0524807"
                                     />
                                 </div>
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                    <h4 className="font-medium text-blue-900 mb-2">Cara mendapatkan koordinat:</h4>
-                                    <ol className="text-sm text-blue-800 space-y-1">
-                                        <li>1. Buka Google Maps</li>
-                                        <li>2. Cari lokasi hotel Anda</li>
-                                        <li>3. Klik kanan pada lokasi</li>
-                                        <li>4. Pilih koordinat yang muncul</li>
-                                        <li>5. Copy dan paste di form ini</li>
-                                    </ol>
-                                </div>
                             </div>
-                            <div className="bg-gray-100 rounded-lg p-8 flex items-center justify-center">
-                                <div className="text-center text-gray-500">
-                                    <MapPin className="w-16 h-16 mx-auto mb-4" />
-                                    <p className="text-lg font-medium mb-2">Preview Peta</p>
-                                    <p className="text-sm">Masukkan koordinat untuk melihat lokasi</p>
-                                </div>
+                            <div className="md:col-span-2 bg-gray-100 rounded-xl overflow-hidden h-48 border border-gray-200 relative">
+                                {formData.latitude && formData.longitude ? (
+                                    <iframe
+                                        width="100%" height="100%" frameBorder="0" scrolling="no"
+                                        src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(formData.longitude)-0.005}%2C${parseFloat(formData.latitude)-0.005}%2C${parseFloat(formData.longitude)+0.005}%2C${parseFloat(formData.latitude)+0.005}&layer=mapnik&marker=${formData.latitude}%2C${formData.longitude}`}
+                                    ></iframe>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                                        <MapPin className="w-8 h-8 mb-2 opacity-50" />
+                                        <p className="text-xs">Preview peta akan muncul setelah koordinat diisi</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
 
                     {/* Submit Button */}
-                    <div className="bg-white rounded-2xl shadow-sm p-6">
-                        <div className="flex items-center justify-between">
-                            <div className="text-sm text-gray-600">
-                                <p>Pastikan semua informasi sudah benar sebelum mendaftar</p>
-                                <p className="mt-1">
-                                    Form yang sudah diisi: 
-                                    <span className="font-medium text-blue-600 ml-1">
-                                        {formData.nama && 'Info Dasar'}
-                                        {formData.kontak && ', Kontak'}
-                                        {formData.logo && ', Logo'}
-                                        {mediaFiles.length > 0 && ', Galeri'}
-                                        {selectedFacilities.length > 0 && ', Fasilitas'}
-                                        {roomTypes.length > 0 && ', Kamar'}
-                                        {(formData.latitude && formData.longitude) && ', Lokasi'}
-                                    </span>
-                                </p>
-                            </div>
-                            
-                            <button
-                                type="submit"
-                                disabled={isLoading}
-                                className="px-8 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                            >
-                                {isLoading ? (
-                                    <>
-                                        <Loader2 className="w-5 h-5 animate-spin" />
-                                        Mendaftarkan...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Upload className="w-5 h-5" />
-                                        Daftarkan Hotel
-                                    </>
-                                )}
-                            </button>
-                        </div>
+                    <div className="flex items-center justify-end pt-4">
+                        <button
+                            type="submit"
+                            disabled={isLoading}
+                            className="px-8 py-3.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 shadow-lg shadow-blue-200"
+                        >
+                            {isLoading ? (
+                                <><Loader2 className="w-5 h-5 animate-spin" /> Menyimpan Data...</>
+                            ) : (
+                                <><Check className="w-5 h-5" /> Simpan & Aktifkan Destinasi</>
+                            )}
+                        </button>
                     </div>
                 </form>
             </div>
+
+            {/* MODAL CROP GAMBAR (TEMA BIRU) */}
+            {isCropModalOpen && tempLogoUrl && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden flex flex-col shadow-2xl">
+                        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                            <h3 className="font-bold text-gray-800">Sesuaikan Gambar Thumbnail</h3>
+                            <button onClick={() => setIsCropModalOpen(false)} className="p-1.5 hover:bg-red-50 rounded-full group transition-colors">
+                                <X className="w-5 h-5 text-gray-500 group-hover:text-red-500" />
+                            </button>
+                        </div>
+                        
+                        <div className="relative h-[300px] w-full bg-gray-900">
+                            <Cropper
+                                image={tempLogoUrl}
+                                crop={crop}
+                                zoom={zoom}
+                                aspect={16 / 9} // Rasio persegi panjang 16:9
+                                onCropChange={setCrop}
+                                onCropComplete={(_, croppedAreaPixels) => setCroppedAreaPixels(croppedAreaPixels as any)}
+                                onZoomChange={setZoom}
+                            />
+                        </div>
+                        
+                        <div className="p-5 bg-gray-50 flex flex-col gap-6">
+                            <div>
+                                <label className="text-xs font-semibold text-gray-500 mb-3 block uppercase tracking-wider">Zoom Level</label>
+                                <input
+                                    type="range"
+                                    value={zoom}
+                                    min={1}
+                                    max={3}
+                                    step={0.1}
+                                    onChange={(e) => setZoom(Number(e.target.value))}
+                                    className="w-full accent-blue-600 cursor-pointer"
+                                />
+                            </div>
+                            <div className="flex justify-end gap-3">
+                                <button type="button" onClick={() => setIsCropModalOpen(false)} className="px-5 py-2.5 font-semibold text-gray-600 hover:bg-gray-200 rounded-xl transition-colors">
+                                    Batal
+                                </button>
+                                <button type="button" onClick={handleCropComplete} className="px-5 py-2.5 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-2 shadow-md">
+                                    <Check className="w-4 h-4" /> Terapkan & Potong
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -120,38 +120,68 @@ export default async function AllCategoriesPage() {
           <div className="grid md:grid-cols-3 gap-8">
             {featuredCategories.map((category) => {
               const Icon = category.icon;
-              return (
-                <Link
-                  // DIUBAH: Gunakan ID unik dari database untuk 'key'
-                  key={category.id} 
-                  // DIUBAH: Gunakan slug dinamis dari database
-                  href={`/category/${category.slug}`}
-                  className="group bg-white rounded-3xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-500 transform hover:scale-105"
-                >
-                  <div className={`relative h-32 bg-gradient-to-br ${category.color} flex items-center justify-center`}>
-                    <Icon className="w-12 h-12 text-white group-hover:scale-110 transition-transform duration-300" />
+              const isWisata = category.slug.toLowerCase() === 'wisata';
+
+              // Bungkus isi visual kartu ke dalam variabel agar tidak perlu ditulis 2 kali
+              const cardContent = (
+                <>
+                  <div className={`relative h-32 flex items-center justify-center ${
+                      isWisata ? 'bg-gray-300' : `bg-gradient-to-br ${category.color}`
+                  }`}>
+                    <Icon className={`w-12 h-12 ${
+                        isWisata ? 'text-gray-400' : 'text-white group-hover:scale-110 transition-transform duration-300'
+                    }`} />
                   </div>
 
                   <div className="p-6">
                     <div className="flex items-center justify-between mb-3">
-                      {/* DIUBAH: Gunakan nama dinamis dari database */}
-                      <h3 className="text-xl font-bold text-gray-800 group-hover:text-blue-600 transition-colors">
+                      <h3 className={`text-xl font-bold ${
+                          isWisata ? 'text-gray-400' : 'text-gray-800 group-hover:text-blue-600 transition-colors'
+                      }`}>
                         {category.name}
                       </h3>
-                      {/* DIUBAH: Gunakan jumlah dinamis dari database */}
-                      <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
-                        {category.item_count}+
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          isWisata ? 'bg-gray-200 text-gray-500' : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {isWisata ? 'Segera Hadir' : `${category.item_count}+`}
                       </span>
                     </div>
-                    {/* DIUBAH: Gunakan deskripsi dinamis dari database */}
-                    <p className="text-gray-600 mb-4 leading-relaxed">
+                    
+                    <p className={`mb-4 leading-relaxed ${isWisata ? 'text-gray-400' : 'text-gray-600'}`}>
                       {category.description}
                     </p>
+                    
                     <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500">Lihat semua pilihan</span>
-                        <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                        <span className={`text-sm ${isWisata ? 'text-gray-400' : 'text-gray-500'}`}>
+                            {isWisata ? 'Belum tersedia' : 'Lihat semua pilihan'}
+                        </span>
+                        <ArrowRight className={`w-5 h-5 ${
+                            isWisata ? 'text-gray-300' : 'text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all'
+                        }`} />
                     </div>
                   </div>
+                </>
+              );
+
+              // LOGIKA KUNCI: Jika Wisata, render sebagai <div> biasa. Jika bukan, render sebagai <Link>.
+              if (isWisata) {
+                  return (
+                      <div 
+                        key={category.id} 
+                        className="group rounded-3xl overflow-hidden transition-all duration-500 bg-gray-50 shadow-sm border border-gray-200 cursor-not-allowed opacity-80"
+                      >
+                          {cardContent}
+                      </div>
+                  );
+              }
+
+              return (
+                <Link 
+                  key={category.id} 
+                  href={`/category/${category.slug}`} 
+                  className="group rounded-3xl overflow-hidden transition-all duration-500 bg-white shadow-lg hover:shadow-2xl transform hover:scale-105"
+                >
+                    {cardContent}
                 </Link>
               );
             })}
